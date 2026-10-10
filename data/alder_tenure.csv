@@ -1,0 +1,53 @@
+id,ward,name,photo_url,start_date,end_date,source_url
+w01-2023,1,Daniel La Spata,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/41A0E156-F788-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w02-2023,2,Brian Hopkins,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/B160E94E-FB88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w03-2023,3,Pat Dowell,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/B66788C7-FA88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w04-2023,4,Lamont J. Robinson,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/80D52B16-6AF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w05-2023,5,Desmon C. Yancy,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/E0AC4B85-6AF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w06-2023,6,William E. Hall,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/7D95D6BB-6AF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w07-2023,7,Gregory I. Mitchell,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/2E656B9F-C373-EC11-8F8E-001DD804F9F3.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w08-2023,8,Michelle A. Harris,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/886B5C20-F788-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w09-2023,9,Anthony Beale,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/AC394D1C-F988-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w10-2023,10,Peter Chico,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/4C168A10-6BF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w11-2023,11,Nicole T. Lee,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/E29E5122-7BB7-EC11-983E-001DD8049E83.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w12-2023,12,Julia M. Ramirez,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/9E248041-6BF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w13-2023,13,Marty Quinn,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/97A2C337-FC88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w14-2023,14,Jeylu B. Gutierrez,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/2E2DFB80-6BF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w15-2023,15,Raymond A. Lopez,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/0AD4F54F-FC88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w16-2023,16,Stephanie D. Coleman,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/E019D2FB-F788-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w17-2023,17,David H. Moore,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/EF6C6F46-F988-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w18-2023,18,Derrick G. Curtis,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/EE27295C-FC88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w19-2023,19,Matthew J. O'Shea,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/8E62E57A-F788-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w20-2023,20,Jeanette B. Taylor,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/E3010C0E-F888-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w21-2023,21,Ronnie L. Mosley,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/8B0682AE-6BF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w22-2023,22,Michael D. Rodriguez,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/40AA3439-736E-EC11-8F8E-001DD804FDD0.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w23-2023,23,Silvana Tabares,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/CD474D9F-F788-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w24-2023,24,Monique L. Scott,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/70A44C5E-5EEE-EC11-BB3B-001DD805196E.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w25-2023,25,Byron Sigcho-Lopez,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/9F0FC064-F988-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w26-2023,26,Jessica L. Fuentes,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/85DA45DD-6BF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w27-2023,27,Walter Burnett Jr.,,2023-05-15,2025-07-31,https://data.cityofchicago.org/d/htai-wnw4
+w27-2025,27,Walter R. Burnett,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/81F21A0D-F16E-F011-BEC1-001DD8096BE6.jpg,2025-09-05,,https://abc7chicago.com/amp/post/chicago-mayor-brandon-johnson-appoints-walter-redmond-burnett-iii-replace-27th-ward-alderman-jr-city-council/17751127/
+w28-2023,28,Jason C. Ervin,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/C5C5987A-FC88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w29-2023,29,Chris Taliaferro,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/F113CA93-FC88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w30-2023,30,Ruth Cruz,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/C7422EFD-6BF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w31-2023,31,"Jr., Felix Cardona",https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/1C8E86C8-FB88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w32-2023,32,Scott Waguespack,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/239D3A1D-FA88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w33-2023,33,Rossana Rodriguez Sanchez,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/176937CC-9378-EC11-8940-001DD804DD33.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w34-2023,34,William Conway,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/4C380420-6CF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w35-2023,35,Carlos Ramirez-Rosa,,2023-05-15,2025-03-31,https://data.cityofchicago.org/d/htai-wnw4
+w35-2025,35,Anthony J. Quezada,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/A32C8E68-7415-F011-9989-001DD806C140.jpg,2025-04-07,,https://abc7chicago.com/post/chicago-mayor-brandon-johnson-announces-cook-county-commissioner-anthony-joel-quezada-35th-ward-alderman-pick/16119487/
+w36-2023,36,Gilbert Villegas,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/9E0A3436-FB88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w37-2023,37,Emma Mitts,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/970B1AB5-FA88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w38-2023,38,Nicholas Sposato,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/40781120-F888-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w39-2023,39,Samantha Nugent,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/7C82104C-F888-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w40-2023,40,"Jr., Andre Vasquez",https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/9DB0248A-F988-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w41-2023,41,Anthony V. Napolitano,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/55B86EA2-F988-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w42-2023,42,Brendan Reilly,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/DE5B6D97-FC72-EC11-8F8E-001DD804F74D.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w43-2023,43,Timothy R. Knudsen,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/75B69F92-D740-ED11-9DAF-001DD8309496.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w44-2023,44,Bennett R. Lawson,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/1628D550-6CF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w45-2023,45,James M. Gardiner,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/A29D73BA-F988-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w46-2023,46,Angela Clay,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/5F4C907D-6CF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w47-2023,47,Matthew J. Martin,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/A218F4F8-F988-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w48-2023,48,Leni Manaa-Hoppenworth,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/561B99CA-6CF3-ED11-A7C6-001DD804FC2B.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w49-2023,49,Maria E. Hadden,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/124700E1-FB88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4
+w50-2023,50,Debra L. Silverstein,https://occprodstoragev1.blob.core.usgovcloudapi.net/council-profile-pictures/0F96F023-FB88-EC11-8D20-001DD804FD38.jpg,2023-05-15,,https://data.cityofchicago.org/d/htai-wnw4

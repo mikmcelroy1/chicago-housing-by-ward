@@ -1,0 +1,39 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "tsx --test tests/*.test.ts",
+    "etl": "tsx --env-file-if-exists=.env.local scripts/ingest-permits.ts",
+    "migrate": "tsx --env-file-if-exists=.env.local scripts/apply-migration.ts",
+    "sync-wards": "tsx --env-file-if-exists=.env.local scripts/sync-wards.ts",
+    "load-denominator": "tsx --env-file-if-exists=.env.local scripts/load-denominator.ts",
+    "classify-sample": "tsx scripts/dev/classify-sample.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
+    "next": "16.4.0",
+    "pg": "^8.23.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  },
+  "type": "module"
+}

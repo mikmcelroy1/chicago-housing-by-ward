@@ -1,0 +1,43 @@
+name: Nightly permits ETL
+
+# Re-pulls every building permit issued since the 2023 ward map, classifies it, resolves demolition
+# unit counts against the Cook County Assessor, rebuilds projects, and loads Supabase. Quiet = healthy:
+# a failed run goes red and emails; nearly everything self-heals on the next run.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC = 1:00 am Chicago
+  workflow_dispatch: {}
+
+concurrency:
+  group: nightly-etl
+  cancel-in-progress: false
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
+      VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Unit tests for the parsing rules
+        run: npm test
+      - name: Sync ward boundaries and office websites
+        run: npm run sync-wards
+      - name: Pull, classify, and load permits
+        run: npm run etl
+      - name: Upload the review queue
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-queue
+          path: data/review-queue.csv
+          if-no-files-found: ignore

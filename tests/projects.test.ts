@@ -1,0 +1,77 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import type { Classification, Permit } from "../scripts/lib/types";
+import { buildProjects, type ClassifiedPermit } from "../scripts/lib/projects";
+
+let seq = 0;
+function permit(o: Partial<Permit> & { permit_type: string; issue_date: string }): Permit {
+  seq += 1;
+  return {
+    id: `id${seq}`, permit_no: `P${seq}`, review_type: null, status: "ACTIVE", address: "2129 N OAKLEY AVE", lat: 41.92, lon: -87.68,
+    ward: 32, pins: [], description: "", reported_cost: null, contacts: [], ...o,
+  };
+}
+function cls(o: Partial<Classification> & { category: Classification["category"]; units: number | null }): Classification {
+  return { units_source: "regex_number", needs_review: false, notes: [], ...o };
+}
+const NC = "PERMIT - NEW CONSTRUCTION";
+const DEMO = "PERMIT - WRECKING/DEMOLITION";
+const opts = { tenures: [], wardAt: () => 32, subsidizedAt: () => false };
+
+function build(items: ClassifiedPermit[]) {
+  return buildProjects(items, opts);
+}
+
+test("demolition then rebuild at the same address becomes one replacement project", () => {
+  const demo = { permit: permit({ permit_type: DEMO, issue_date: "2026-01-10" }), cls: cls({ category: "demolition", units: 1, units_source: "assessor" }) };
+  const house = { permit: permit({ permit_type: NC, issue_date: "2026-01-25", description: "ERECT NEW 2 STORY SINGLE FAMILY RESIDENCE" }), cls: cls({ category: "new_residential", units: 1 }) };
+  const out = build([demo, house]);
+  const nc = out.find((p) => p.kind === "new_construction")!;
+  const d = out.find((p) => p.kind === "demolition")!;
+  assert.equal(nc.units_delta, 0);
+  assert.equal(nc.replaced_units, 1);
+  assert.equal(nc.counted, true);
+  assert.equal(nc.first_issue_date, "2026-01-25");
+  assert.equal(d.counted, false);
+  assert.equal(d.merged_into, nc.id);
+  assert.ok(nc.permit_ids.includes(demo.permit.id));
+});
+
+test("rebuild permit issued before the demolition still merges; a 3-flat to a house nets minus two", () => {
+  const house = { permit: permit({ permit_type: NC, issue_date: "2026-02-15" }), cls: cls({ category: "new_residential", units: 1, units_source: "sfr_keyword" }) };
+  const demo = { permit: permit({ permit_type: DEMO, issue_date: "2026-03-01" }), cls: cls({ category: "demolition", units: 3, units_source: "assessor" }) };
+  const nc = build([house, demo]).find((p) => p.kind === "new_construction")!;
+  assert.equal(nc.units_delta, -2);
+  assert.equal(nc.replaced_units, 3);
+});
+
+test("several demolitions fold into one tower", () => {
+  const demos = ["2025-05-01", "2025-05-02", "2025-05-03"].map((d) => ({ permit: permit({ permit_type: DEMO, issue_date: d }), cls: cls({ category: "demolition", units: 2, units_source: "assessor" }) }));
+  const tower = { permit: permit({ permit_type: NC, issue_date: "2025-09-01" }), cls: cls({ category: "new_residential", units: 20 }) };
+  const out = build([...demos, tower]);
+  const nc = out.find((p) => p.kind === "new_construction")!;
+  assert.equal(nc.units_delta, 14);
+  assert.equal(nc.replaced_units, 6);
+  assert.equal(out.filter((p) => p.kind === "demolition" && p.merged_into === nc.id).length, 3);
+});
+
+test("a demolition with no rebuild, an emergency demolition, and a rebuild years later stay separate", () => {
+  const lone = { permit: permit({ permit_type: DEMO, issue_date: "2026-01-10", address: "100 W LONE ST" }), cls: cls({ category: "demolition", units: 2, units_source: "assessor" }) };
+  const emergency = { permit: permit({ permit_type: DEMO, issue_date: "2026-01-10", address: "200 W EMERG ST" }), cls: cls({ category: "emergency_demolition", units: 2, units_source: "assessor" }) };
+  const later = { permit: permit({ permit_type: NC, issue_date: "2026-02-01", address: "200 W EMERG ST" }), cls: cls({ category: "new_residential", units: 3 }) };
+  const oldDemo = { permit: permit({ permit_type: DEMO, issue_date: "2023-06-01", address: "300 W OLD ST" }), cls: cls({ category: "demolition", units: 1, units_source: "assessor" }) };
+  const farRebuild = { permit: permit({ permit_type: NC, issue_date: "2026-06-01", address: "300 W OLD ST" }), cls: cls({ category: "new_residential", units: 1 }) };
+  const out = build([lone, emergency, later, oldDemo, farRebuild]);
+  assert.equal(out.find((p) => p.address === "100 W LONE ST")!.counted, true);
+  assert.equal(out.find((p) => p.kind === "emergency_demolition")!.merged_into, null);
+  assert.equal(out.find((p) => p.address === "200 W EMERG ST" && p.kind === "new_construction")!.replaced_units, 0);
+  assert.equal(out.filter((p) => p.address === "300 W OLD ST").every((p) => p.counted), true);
+});
+
+test("unplaced permits are counted, not silently dropped", () => {
+  const nowhere = { permit: permit({ permit_type: NC, issue_date: "2026-01-01", ward: null, lat: null, lon: null }), cls: cls({ category: "new_residential", units: 2 }) };
+  const unplaced = { count: 0 };
+  const out = buildProjects([nowhere], { ...opts, wardAt: () => null, unplaced });
+  assert.equal(out.length, 0);
+  assert.equal(unplaced.count, 1);
+});
