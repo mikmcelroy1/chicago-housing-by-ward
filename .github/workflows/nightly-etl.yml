@@ -22,8 +22,8 @@ jobs:
       SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
       VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -36,7 +36,7 @@ jobs:
         run: npm run etl
       - name: Upload the review queue
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: review-queue
           path: data/review-queue.csv
