@@ -1,5 +1,7 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { RankingCards } from "@/components/RankingCards";
+import { MobileSort } from "@/components/MobileSort";
 import { RankingTable, type RankingRow } from "@/components/RankingTable";
 import { WindowControls } from "@/components/WindowControls";
 import { getSnapshot } from "@/lib/data";
@@ -47,7 +49,13 @@ async function Rankings({ searchParams }: { searchParams: Promise<SearchParams> 
           the units permitted during their tenure.
         </p>
       ) : null}
-      <RankingTable rows={rows} state={state} showFlags={snapshot.flags.length > 0} />
+      <div className="hidden sm:block">
+        <RankingTable rows={rows} state={state} showFlags={snapshot.flags.length > 0} />
+      </div>
+      <div className="flex flex-col gap-3 sm:hidden">
+        <MobileSort path="/" state={state} />
+        <RankingCards rows={rows} state={state} showFlags={snapshot.flags.length > 0} />
+      </div>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         Net = gross units permitted minus units lost to demolition and deconversion. A building torn down for a rebuild at the same address
         counts once, net of what it replaced. Rank change compares this period to the equal-length period before it. Emergency demolitions

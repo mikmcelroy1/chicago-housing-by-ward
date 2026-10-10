@@ -14,7 +14,7 @@ export interface RankingRow extends RankedWardWithChange {
   flags: WardFlag[];
 }
 
-const COLUMNS: { key: SortKey; label: string; info: string; anchor: string }[] = [
+export const COLUMNS: { key: SortKey; label: string; info: string; anchor: string }[] = [
   {
     key: "rate",
     label: "Net / 1,000",
@@ -32,7 +32,7 @@ const COLUMNS: { key: SortKey; label: string; info: string; anchor: string }[] =
   { key: "projects", label: "Projects", info: "Counted projects in this period. Fewer than 3 is marked low sample because the rate is noisy.", anchor: "the-rank" },
 ];
 
-function RankChange({ change }: { change: number | null }) {
+export function RankChange({ change }: { change: number | null }) {
   if (change === null || change === 0) {
     return (
       <span className="text-zinc-400 dark:text-zinc-500" aria-label={change === null ? "No prior period" : "No change"}>
