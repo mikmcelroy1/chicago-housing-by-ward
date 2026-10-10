@@ -168,6 +168,11 @@ async function loadDatabase(permits: Permit[], raw: Map<string, RawPermit>, item
   const runId = run.rows[0].id as number;
   try {
     await client.query("begin");
+    // Classifications and projects are rebuilt from scratch every run. Clear them first: projects
+    // reference alder_tenures, which is reloaded from the CSV below.
+    await client.query("delete from project_permits");
+    await client.query("delete from projects");
+    await client.query("delete from permit_class");
     await client.query(`insert into wards (ward) select generate_series(1,50) on conflict do nothing`);
     await client.query("delete from alder_tenures");
     for (const t of tenures) {
@@ -203,10 +208,6 @@ async function loadDatabase(permits: Permit[], raw: Map<string, RawPermit>, item
       [SINCE, permits.map((p) => p.id)],
     );
     counts.voided_this_run = voided.rowCount ?? 0;
-    // Classifications and projects are rebuilt from scratch.
-    await client.query("delete from project_permits");
-    await client.query("delete from projects");
-    await client.query("delete from permit_class");
     for (let i = 0; i < items.length; i += CHUNK) {
       const chunk = items.slice(i, i + CHUNK);
       const params: unknown[] = [];
