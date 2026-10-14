@@ -1,15 +1,12 @@
 import Link from "next/link";
 import type { Project } from "@/scripts/lib/types";
 import { formatCurrency, formatDate, KIND_LABELS } from "@/lib/format";
+import { FlagChips } from "./FlagChips";
 import { SignedUnits } from "./SignedNumber";
 
 export function permitUrl(primaryPermitId: string): string {
   return `https://data.cityofchicago.org/resource/ydr8-5enu.json?id=${encodeURIComponent(primaryPermitId)}`;
 }
-
-const badge = "rounded border px-1.5 py-0.5 text-xs";
-const neutralBadge = `${badge} border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300`;
-const warnBadge = `${badge} border-amber-500/60 text-amber-800 dark:border-amber-400/60 dark:text-amber-300`;
 
 function ProjectRow({ project: p, showWard }: { project: Project; showWard: boolean }) {
   const emergency = p.kind === "emergency_demolition";
@@ -25,23 +22,9 @@ function ProjectRow({ project: p, showWard }: { project: Project; showWard: bool
             Ward {p.ward}
           </Link>
         ) : null}
-        <span className={`text-sm ${emergency ? "text-amber-700 dark:text-amber-400" : "text-zinc-600 dark:text-zinc-400"}`}>
-          {KIND_LABELS[p.kind]}
-          {p.replaced_units > 0 ? ` · replaces ${p.replaced_units} ${p.replaced_units === 1 ? "unit" : "units"}` : ""}
-        </span>
+        <span className={`text-sm ${emergency ? "text-amber-700 dark:text-amber-400" : "text-zinc-600 dark:text-zinc-400"}`}>{KIND_LABELS[p.kind]}</span>
         <SignedUnits value={p.units_delta} className="font-medium" />
-        <span className="flex flex-wrap items-center gap-1.5">
-          {p.subsidized ? <span className={neutralBadge}>Subsidized</span> : null}
-          {p.merged_into ? (
-            <span className={neutralBadge} title="Folded into the new-construction project at this address and counted there, net of these units.">
-              Merged into rebuild
-            </span>
-          ) : !p.counted ? (
-            <span className={warnBadge} title={emergency ? "Emergency demolitions are shown but never counted." : "Not included in the ward's totals."}>
-              Not counted{p.needs_review ? " · needs review" : ""}
-            </span>
-          ) : null}
-        </span>
+        <FlagChips project={p} />
       </div>
       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-zinc-500 sm:pl-[6.75rem] dark:text-zinc-400">
         {p.reported_cost !== null ? (

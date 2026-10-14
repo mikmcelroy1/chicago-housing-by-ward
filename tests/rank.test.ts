@@ -28,6 +28,8 @@ function project(overrides: Partial<Project> & { ward: number; kind: ProjectKind
     primary_permit_id: `${1000 + seq}`,
     permit_no: `B${seq}`,
     permit_ids: [`${1000 + seq}`],
+    ward_geom_mismatch: false,
+    flags: [],
     address: "1 MAIN ST",
     lat: null,
     lon: null,

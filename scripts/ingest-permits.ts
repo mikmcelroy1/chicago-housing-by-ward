@@ -18,9 +18,21 @@ import { soql, lit } from "./lib/socrata";
 import { parseCsv, toCsv } from "./lib/csv";
 import { classify } from "./lib/rules";
 import { loadWardPolygons, wardAt as wardAtPolys, haversine } from "./lib/geo";
-import { loadParcelCache, saveParcelCache, resolveAddresses, resolveUnits, normalizeAddress, pin14 } from "./lib/parcels";
+import {
+  cacheKeys,
+  loadParcelCache,
+  loadParcelCacheDb,
+  normalizeAddress,
+  pin14,
+  resolveAddresses,
+  resolveUnits,
+  saveParcelCache,
+  saveParcelCacheDb,
+  type ParcelCache,
+  type Queryable,
+} from "./lib/parcels";
 import { buildProjects, type ClassifiedPermit } from "./lib/projects";
-import type { AlderTenure, Override, Permit, Project, Snapshot, WardFlag, WardRow } from "./lib/types";
+import type { AlderTenure, Override, ParcelLookup, Permit, Project, Snapshot, WardFlag, WardRow } from "./lib/types";
 
 const CHI = "data.cityofchicago.org";
 const PERMITS = "ydr8-5enu";
@@ -117,33 +129,63 @@ function loadCsvs(): { tenures: AlderTenure[]; wardFlags: WardFlag[]; overrides:
   return { tenures, wardFlags, overrides };
 }
 
-async function resolveDemolitions(items: ClassifiedPermit[], resolvedPins: Map<string, string>): Promise<void> {
-  const cache = loadParcelCache(CACHE);
+/** One short-lived connection per phase, so a long run never sits on an idle pooler session. */
+async function withDb<T>(fn: (db: Client) => Promise<T>): Promise<T> {
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set (use --dry-run for an offline run)");
+  const client = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+const queryable = (db: Client): Queryable => ({ query: (text, values) => db.query(text, values) });
+
+/**
+ * Demolitions without a stated unit count: the permit's own PINs, else every parcel the assessor files at its
+ * address, each looked up for the year before the permit. The permit's units are the parcels' units added
+ * together; buildProjects later merges permits at one address so each parcel counts once.
+ */
+async function resolveDemolitions(items: ClassifiedPermit[], resolvedPins: Map<string, string[]>, cache: ParcelCache): Promise<void> {
   const demos = items.filter(({ cls }) => (cls.category === "demolition" || cls.category === "emergency_demolition") && cls.units === null);
-  await resolveAddresses(demos.filter(({ permit }) => !permit.pins[0]).map(({ permit }) => permit.address), cache);
-  const lookups: { item: ClassifiedPermit; pin: string; year: number }[] = [];
+  await resolveAddresses(demos.filter(({ permit }) => permit.pins.length === 0).map(({ permit }) => permit.address), cache);
+  const lookups: { item: ClassifiedPermit; pins: string[]; year: number }[] = [];
   for (const item of demos) {
-    const pin = item.permit.pins[0] ? pin14(item.permit.pins[0]) : cache.addressToPin[normalizeAddress(item.permit.address)];
-    if (!pin) continue;
-    lookups.push({ item, pin, year: Number(item.permit.issue_date.slice(0, 4)) - 1 });
-  }
-  await resolveUnits(lookups.map(({ pin, year }) => ({ pin, year })), cache);
-  let hit = 0;
-  for (const { item, pin, year } of lookups) {
-    const r = cache.unitsByPinYear[`${pin}:${year}`];
-    resolvedPins.set(item.permit.id, pin);
-    if (r && r.units !== null) {
-      item.cls.units = r.units;
-      item.cls.units_source = "assessor";
-      item.cls.notes.push(`assessor class ${r.cls} (${r.source}, ${r.year})`);
-      hit++;
-    } else if (r) {
-      item.cls.notes.push(`assessor class ${r.cls} has no unit count`);
-      item.cls.needs_review = true;
+    const pins = item.permit.pins.length ? [...new Set(item.permit.pins.map(pin14))].sort() : (cache.addressToPins[normalizeAddress(item.permit.address)] ?? []);
+    if (!pins.length) {
+      item.cls.parcels = [];
+      item.cls.notes.push("no assessor parcel at this address");
+      continue;
     }
+    lookups.push({ item, pins, year: Number(item.permit.issue_date.slice(0, 4)) - 1 });
   }
-  saveParcelCache(cache, CACHE);
-  console.log(`demolitions: ${demos.length} needed a lookup, ${lookups.length} resolved to a PIN, ${hit} got a unit count`);
+  await resolveUnits(lookups.flatMap(({ pins, year }) => pins.map((pin) => ({ pin, year }))), cache);
+  let hit = 0;
+  for (const { item, pins, year } of lookups) {
+    resolvedPins.set(item.permit.id, pins);
+    const parcels: ParcelLookup[] = pins.map((pin) => {
+      const r = cache.unitsByPinYear[`${pin}:${year}`];
+      item.cls.notes.push(
+        r
+          ? `assessor ${pin}: class ${r.cls} ${r.units === null ? "has no unit count" : `= ${r.units} units`} (${r.source}, ${r.year})`
+          : `assessor ${pin}: no record for ${year - 2}-${year}`,
+      );
+      return { pin, cls: r?.cls ?? null, units: r?.units ?? null, year: r?.year ?? null };
+    });
+    item.cls.parcels = parcels;
+    const known = parcels.filter((p) => p.units !== null);
+    if (known.length) {
+      item.cls.units = known.reduce((s, p) => s + (p.units ?? 0), 0);
+      item.cls.units_source = "assessor";
+      if (parcels.length > 1) item.cls.notes.push(`summed across ${parcels.length} parcels`);
+      hit++;
+    }
+    // A class the assessor files but gives no unit count for (large apartment buildings without a valuation row).
+    if (parcels.some((p) => p.cls !== null && p.units === null)) item.cls.needs_review = true;
+  }
+  const parcelCount = lookups.reduce((s, l) => s + l.pins.length, 0);
+  console.log(`demolitions: ${demos.length} needed a lookup, ${lookups.length} resolved to ${parcelCount} parcels, ${hit} got a unit count`);
 }
 
 async function loadAffordable(): Promise<{ lat: number; lon: number }[]> {
@@ -160,10 +202,7 @@ function writeReviewQueue(items: ClassifiedPermit[]): number {
   return rows.length;
 }
 
-async function loadDatabase(permits: Permit[], raw: Map<string, RawPermit>, items: ClassifiedPermit[], projects: Project[], tenures: AlderTenure[], wardFlags: WardFlag[], resolvedPins: Map<string, string>, counts: Record<string, number>): Promise<void> {
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set (use --dry-run for an offline run)");
-  const client = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
-  await client.connect();
+async function loadDatabase(client: Client, permits: Permit[], raw: Map<string, RawPermit>, items: ClassifiedPermit[], projects: Project[], tenures: AlderTenure[], wardFlags: WardFlag[], resolvedPins: Map<string, string[]>, counts: Record<string, number>): Promise<void> {
   const run = await client.query("insert into etl_runs default values returning id");
   const runId = run.rows[0].id as number;
   try {
@@ -212,22 +251,23 @@ async function loadDatabase(permits: Permit[], raw: Map<string, RawPermit>, item
       const chunk = items.slice(i, i + CHUNK);
       const params: unknown[] = [];
       const tuples = chunk.map(({ permit, cls }) => {
-        params.push(permit.id, cls.category, cls.units, cls.units_source, cls.needs_review, cls.notes, resolvedPins.get(permit.id) ?? null);
-        const b = params.length - 7;
-        return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7})`;
+        const pins = resolvedPins.get(permit.id) ?? [];
+        params.push(permit.id, cls.category, cls.units, cls.units_source, cls.needs_review, cls.notes, pins[0] ?? null, pins);
+        const b = params.length - 8;
+        return `(${Array.from({ length: 8 }, (_, k) => `$${b + k + 1}`).join(",")})`;
       });
-      await client.query(`insert into permit_class (permit_id, category, units, units_source, needs_review, notes, resolved_pin) values ${tuples.join(",")}`, params);
+      await client.query(`insert into permit_class (permit_id, category, units, units_source, needs_review, notes, resolved_pin, resolved_pins) values ${tuples.join(",")}`, params);
     }
     for (let i = 0; i < projects.length; i += CHUNK) {
       const chunk = projects.slice(i, i + CHUNK);
       const params: unknown[] = [];
       const tuples = chunk.map((p) => {
-        params.push(p.id, p.project_key, p.kind, p.ward, p.units_delta, p.counted, p.first_issue_date, p.primary_permit_id, p.permit_no, p.address, p.lat, p.lon, p.alder_tenure_id, p.subsidized, p.replaced_units, p.merged_into, p.status, p.description, p.reported_cost, p.review_type, p.needs_review, (p as Project & { ward_geom_mismatch?: boolean }).ward_geom_mismatch ?? false);
-        const b = params.length - 22;
-        return `(${Array.from({ length: 22 }, (_, k) => `$${b + k + 1}`).join(",")})`;
+        params.push(p.id, p.project_key, p.kind, p.ward, p.units_delta, p.counted, p.first_issue_date, p.primary_permit_id, p.permit_no, p.address, p.lat, p.lon, p.alder_tenure_id, p.subsidized, p.replaced_units, p.merged_into, p.status, p.description, p.reported_cost, p.review_type, p.needs_review, p.ward_geom_mismatch, p.flags);
+        const b = params.length - 23;
+        return `(${Array.from({ length: 23 }, (_, k) => `$${b + k + 1}`).join(",")})`;
       });
       await client.query(
-        `insert into projects (id, project_key, kind, ward, units_delta, counted, first_issue_date, primary_permit_id, permit_no, address, lat, lon, alder_tenure_id, subsidized, replaced_units, merged_into, status, description, reported_cost, review_type, needs_review, ward_geom_mismatch) values ${tuples.join(",")}`,
+        `insert into projects (id, project_key, kind, ward, units_delta, counted, first_issue_date, primary_permit_id, permit_no, address, lat, lon, alder_tenure_id, subsidized, replaced_units, merged_into, status, description, reported_cost, review_type, needs_review, ward_geom_mismatch, flags) values ${tuples.join(",")}`,
         params,
       );
       const links: unknown[] = [];
@@ -245,8 +285,6 @@ async function loadDatabase(permits: Permit[], raw: Map<string, RawPermit>, item
     await client.query("rollback").catch(() => {});
     await client.query("update etl_runs set finished_at = now(), status = 'failed', error = $2 where id = $1", [runId, String(err)]).catch(() => {});
     throw err;
-  } finally {
-    await client.end().catch(() => {});
   }
   if (process.env.VERCEL_DEPLOY_HOOK) {
     const res = await fetch(process.env.VERCEL_DEPLOY_HOOK, { method: "POST" });
@@ -286,8 +324,19 @@ async function main() {
     it.cls.notes.push(`override: ${o.note}`);
     overridden++;
   }
-  const resolvedPins = new Map<string, string>();
-  if (!NO_PARCELS) await resolveDemolitions(items, resolvedPins);
+
+  // Assessor lookups for demolitions, cached between runs: in the database for a real run, in data/cache for a dry run.
+  const resolvedPins = new Map<string, string[]>();
+  if (!NO_PARCELS) {
+    const cache = DRY ? loadParcelCache(CACHE) : await withDb((db) => loadParcelCacheDb(queryable(db)));
+    const before = cacheKeys(cache);
+    await resolveDemolitions(items, resolvedPins, cache);
+    if (DRY) saveParcelCache(cache, CACHE);
+    else {
+      const written = await withDb((db) => saveParcelCacheDb(queryable(db), cache, before));
+      console.log(`parcel cache: ${written} new entries saved`);
+    }
+  }
 
   const polys = await loadWardPolygons(CACHE);
   const affordable = await loadAffordable();
@@ -304,17 +353,18 @@ async function main() {
   counts.replaced_units = projects.reduce((s, p) => s + p.replaced_units, 0);
   for (const { cls } of items) counts[`cat_${cls.category}`] = (counts[`cat_${cls.category}`] ?? 0) + 1;
   for (const p of projects) counts[`kind_${p.kind}`] = (counts[`kind_${p.kind}`] ?? 0) + 1;
+  for (const p of projects) for (const f of p.flags) counts[`flag_${f}`] = (counts[`flag_${f}`] ?? 0) + 1;
   counts.counted_projects = projects.filter((p) => p.counted).length;
   const GROSS = new Set(["new_construction", "adu", "conversion"]);
   counts.gross_units = projects.filter((p) => p.counted && GROSS.has(p.kind)).reduce((s, p) => s + Math.max(p.units_delta + p.replaced_units, 0), 0);
   counts.lost_units = projects.filter((p) => p.counted).reduce((s, p) => s + (GROSS.has(p.kind) ? p.replaced_units : Math.max(-p.units_delta, 0)), 0);
   counts.emergency_units = -projects.filter((p) => p.kind === "emergency_demolition").reduce((s, p) => s + p.units_delta, 0);
-  counts.ward_geom_mismatch = projects.filter((p) => (p as Project & { ward_geom_mismatch?: boolean }).ward_geom_mismatch).length;
+  counts.ward_geom_mismatch = projects.filter((p) => p.ward_geom_mismatch).length;
   counts.needs_review = writeReviewQueue(items);
   console.log(counts);
 
   if (DRY) writeSnapshot(permits, projects, tenures, wardFlags, counts);
-  else await loadDatabase(permits, raw, items, projects, tenures, wardFlags, resolvedPins, counts);
+  else await withDb((db) => loadDatabase(db, permits, raw, items, projects, tenures, wardFlags, resolvedPins, counts));
   console.log(`done in ${Math.round((Date.now() - t0) / 1000)}s`);
 }
 

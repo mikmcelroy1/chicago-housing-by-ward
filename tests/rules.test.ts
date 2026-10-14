@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classify, normalize } from "../scripts/lib/rules";
+import { classify, isMixedUse, normalize } from "../scripts/lib/rules";
 
 const NC = "PERMIT - NEW CONSTRUCTION";
 const DEMO = "PERMIT - WRECKING/DEMOLITION";
@@ -87,4 +87,10 @@ test("needs_review on two different unit numbers without TOTAL", () => {
 test("demo hint", () => {
   assert.equal(c(DEMO, "WRECK AND REMOVE A 2 STORY MASONRY MULTI UNIT RESIDENCE").demo_hint, "multi");
   assert.equal(c(DEMO, "WRECK AND REMOVE A 1 STORY MASONRY BUILDNG").demo_hint, "none");
+});
+
+test("mixed use is read from the description", () => {
+  assert.equal(isMixedUse("WRECK AND REMOVE A 2 STORY MASONRY MIXED USE BUILDING"), true);
+  assert.equal(isMixedUse("ERECT A 4 STORY MIXED-USE 9 DWELLING UNIT BUILDING"), true);
+  assert.equal(isMixedUse("COMPLEX DEMOLITION: WRECK AND REMOVE A 1 STORY MASONRY COMMERCIAL GARAGE"), false);
 });

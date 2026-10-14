@@ -26,6 +26,10 @@ body {
 .doc {
   line-height: 1.65;
 }
+.doc h2,
+.doc h3 {
+  scroll-margin-top: 1rem;
+}
 .doc h1 {
   font-size: 1.75rem;
   font-weight: 600;

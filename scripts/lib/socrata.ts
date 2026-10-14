@@ -5,6 +5,7 @@ const PAGE = 50_000;
 export interface SoqlOptions {
   select?: string;
   where?: string;
+  group?: string;
   order?: string;
   limit?: number; // total cap
 }
@@ -21,6 +22,7 @@ export async function soql<T = Record<string, unknown>>(domain: string, dataset:
     const params = new URLSearchParams();
     if (opts.select) params.set("$select", opts.select);
     if (opts.where) params.set("$where", opts.where);
+    if (opts.group) params.set("$group", opts.group);
     params.set("$order", opts.order ?? ":id");
     const want = opts.limit ? Math.min(PAGE, opts.limit - out.length) : PAGE;
     if (want <= 0) break;

@@ -5,7 +5,7 @@ Which of Chicago's 50 wards are actually adding housing? This site ranks every w
 - Ranks the ward, attributes each project to the alder in office on the permit date
 - Counts new construction, ADUs and conversions; subtracts demolitions and deconversions; excludes city-ordered emergency demolitions
 - Rank by net units per 1,000 existing units, or by raw net
-- Every ward drills down to the permits behind its number
+- Every ward drills down to the permits behind its number, and every project carries flags that say where its count came from
 - [Methodology](docs/METHODOLOGY.md) states every rule
 
 ## How it works
@@ -16,7 +16,7 @@ City & county open data ──► nightly ETL (GitHub Action, TypeScript) ──
                        data/*.csv (alder tenures, flags, overrides)   review-queue.csv (permits the rules can't read)
 ```
 
-1. `scripts/ingest-permits.ts` pulls every permit issued since May 15, 2023 (the current ward map), classifies each one with the rules in `scripts/lib/rules.ts`, resolves demolition unit counts against Cook County Assessor parcels, groups multi-permit projects, attributes each project to an alder tenure, and loads Supabase. `--dry-run` does everything except the database and writes `data/fixtures/snapshot.json`.
+1. `scripts/ingest-permits.ts` pulls every permit issued since May 15, 2023 (the current ward map), classifies each one with the rules in `scripts/lib/rules.ts`, resolves demolition unit counts against Cook County Assessor parcels (every parcel at the address, added together), groups multi-permit projects, attributes each project to an alder tenure, and loads Supabase. `--dry-run` does everything except the database and writes `data/fixtures/snapshot.json`.
 2. `scripts/load-denominator.ts` builds the existing-units denominator per ward from assessor parcels.
 3. The Next.js app reads Supabase (or the fixture) and computes rankings in `lib/rank.ts`.
 
@@ -36,7 +36,7 @@ npm test
 
 ## Deploy
 
-1. Create a Supabase project. In the dashboard click **Connect**, pick the **Session pooler** URI (not Direct connection: that host is IPv6-only and GitHub Actions runners have no IPv6), fill in the database password, and put it in `.env.local` as `DATABASE_URL`. Then `npm run migrate -- 001_schema.sql`.
+1. Create a Supabase project. In the dashboard click **Connect**, pick the **Session pooler** URI (not Direct connection: that host is IPv6-only and GitHub Actions runners have no IPv6), fill in the database password, and put it in `.env.local` as `DATABASE_URL`. Then apply every file in `supabase/migrations/` in order: `npm run migrate -- 001_schema.sql`, and so on.
 2. `npm run sync-wards`, `npm run load-denominator`, `npm run etl`.
 3. Add repository secrets `DATABASE_URL`, `SOCRATA_APP_TOKEN` (optional), `VERCEL_DEPLOY_HOOK` (optional). `.github/workflows/nightly-etl.yml` then runs every night at 06:00 UTC and uploads the review queue as an artifact.
 4. Deploy to Vercel with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_REPO_URL`.

@@ -1,4 +1,4 @@
-/** Shared types for the ETL and the web app. Keep in sync with supabase/migrations/001_schema.sql. */
+/** Shared types for the ETL and the web app. Keep in sync with supabase/migrations/*.sql. */
 
 export type Category =
   | "new_residential"
@@ -30,6 +30,22 @@ export type ProjectKind =
   | "demolition"
   | "emergency_demolition";
 
+/** Keys of the flags shown as chips on project lists. The registry (labels, descriptions, icons) is scripts/lib/flags.ts. */
+export type FlagKey =
+  | "emergency"
+  | "merged"
+  | "not_counted"
+  | "needs_review"
+  | "replaces"
+  | "multi_permit"
+  | "assessor_units"
+  | "summed_parcels"
+  | "no_parcel"
+  | "mixed_use_zero"
+  | "overridden"
+  | "subsidized"
+  | "ward_mismatch";
+
 /** One row of the city's Building Permits dataset, as stored in `permits`. */
 export interface Permit {
   id: string; // dataset row id
@@ -48,6 +64,14 @@ export interface Permit {
   contacts: { type: string; name: string }[];
 }
 
+/** One Cook County Assessor parcel consulted for a demolition. */
+export interface ParcelLookup {
+  pin: string; // 14-digit
+  cls: string | null; // assessor class, e.g. "212"; null = no record for the years tried
+  units: number | null; // null = no record, or a class with no unit count
+  year: number | null; // assessment year the record came from
+}
+
 export interface Classification {
   category: Category;
   /** New construction: unit count. Renovation: signed delta. Demolition: units removed (positive). */
@@ -57,6 +81,8 @@ export interface Classification {
   notes: string[];
   /** Demolitions only: what the description says about the building, used when no parcel resolves. */
   demo_hint?: "multi" | "single" | "none";
+  /** Demolitions only: every parcel consulted (the permit's PINs, else every parcel at its address). Empty = none found. */
+  parcels?: ParcelLookup[];
 }
 
 export interface Project {
@@ -84,6 +110,10 @@ export interface Project {
   reported_cost: number | null;
   review_type: string | null;
   needs_review: boolean;
+  /** The permit's coordinates fall in a different ward than the city recorded. The city's ward is used. */
+  ward_geom_mismatch: boolean;
+  /** Flags written by the ETL; flagsFor() in scripts/lib/flags.ts completes them from the row at render time. */
+  flags: FlagKey[];
 }
 
 export interface AlderTenure {

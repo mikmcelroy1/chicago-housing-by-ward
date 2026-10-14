@@ -71,7 +71,7 @@ async function readSupabase(): Promise<Snapshot> {
     selectAll<ProjectRow>(
       supabase,
       "projects",
-      "id, project_key, kind, ward, units_delta, counted, first_issue_date, primary_permit_id, permit_no, address, lat, lon, alder_tenure_id, subsidized, replaced_units, merged_into, status, description, reported_cost, review_type, needs_review",
+      "id, project_key, kind, ward, units_delta, counted, first_issue_date, primary_permit_id, permit_no, address, lat, lon, alder_tenure_id, subsidized, replaced_units, merged_into, status, description, reported_cost, review_type, needs_review, ward_geom_mismatch, flags",
       "id",
     ),
     supabase
@@ -88,6 +88,7 @@ async function readSupabase(): Promise<Snapshot> {
   const projects: Project[] = projectRows.map((row) => ({
     ...row,
     reported_cost: row.reported_cost === null ? null : Number(row.reported_cost),
+    flags: row.flags ?? [],
     permit_ids: [],
   }));
 

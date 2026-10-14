@@ -1,6 +1,6 @@
 # Methodology
 
-This site ranks Chicago's 50 wards by **net new housing units permitted**. Every number on the site traces back to individual building permits published by the City of Chicago, and every rule used to turn a permit into a unit count is written down here. If you think a number is wrong, the permit list on each ward page shows exactly what was counted.
+This site ranks Chicago's 50 wards by **net new housing units permitted**. Every number on the site traces back to individual building permits published by the City of Chicago, and every rule used to turn a permit into a unit count is written down here. If you think a number is wrong, the permit list on each ward page shows exactly what was counted, and each project's flags say where its number came from.
 
 ## What is counted
 
@@ -26,8 +26,9 @@ Permits lag approvals. A large project permitted in an alder's first year was us
 | City of Chicago [Building Permits](https://data.cityofchicago.org/d/ydr8-5enu) | Every permit issued since May 15, 2023, the day the current ward map and council took effect |
 | City of Chicago [Ward boundaries](https://data.cityofchicago.org/d/p293-wvbd) | To verify each permit's ward |
 | City of Chicago [Ward Offices](https://data.cityofchicago.org/d/htai-wnw4) | Alder names and headshots |
+| Cook County Assessor [parcel addresses](https://datacatalog.cookcountyil.gov/d/3723-97qp) | Which parcels sit at a demolished address |
 | Cook County Assessor [parcel records](https://datacatalog.cookcountyil.gov/d/nj4t-kc8j) | Unit counts of demolished buildings, and the existing-unit denominator |
-| City of Chicago [Affordable Rental Housing Developments](https://data.cityofchicago.org/d/s6ha-ppgi) | The subsidized badge on projects |
+| City of Chicago [Affordable Rental Housing Developments](https://data.cityofchicago.org/d/s6ha-ppgi) | The subsidized flag on projects |
 | A hand-maintained list of alder tenures | Who held each seat when, with a source for each change |
 
 The permit data refreshes nightly. Only permits issued on or after May 15, 2023 are included, because the city records each permit's ward as of the day it was issued and the ward map changed on that date.
@@ -36,7 +37,7 @@ The permit data refreshes nightly. Only permits issued on or after May 15, 2023 
 
 The city's permit data has no unit-count field. The count is read from the permit's free-text description, which follows a loose formula ("ERECT A 4 STORY, 9 DWELLING UNIT MASONRY BUILDING").
 
-**New construction permits**
+### New construction permits
 
 1. Permits for tents, stages, cranes, scaffolding, EV chargers, antennas and other temporary or non-building work are dropped. The city files festival tents under "new construction"; they are about a quarter of that category.
 2. Garages, sheds, fences, decks and porches with no dwelling are dropped.
@@ -44,11 +45,11 @@ The city's permit data has no unit-count field. The count is read from the permi
 4. Large projects produce several permits: caissons, foundation, superstructure, a full permit, and revisions. All permits at the same parcel or address within 36 months are grouped into one project. The project's units come from the latest full permit that states a count. A revision that states a reduction adjusts the count.
 5. A permit with a residential keyword but no readable unit count goes to a manual review queue and does not count until a person has read it.
 
-**Replacements**
+### Replacements
 
 More than half of all voluntary demolitions are followed by new construction at the same address, usually within weeks. When a demolition and a new-construction permit fall at the same address or parcel within two years of each other, they are shown as one replacement project, dated at the new-construction permit, with the demolished units subtracted. A house torn down for a bigger house counts zero. A three-flat torn down for a house counts minus two. A frame house torn down for a six-flat counts plus five. The demolition still appears in the ward's list, marked as merged into the rebuild. Until the rebuild permit is issued, a demolition stands on its own as a loss.
 
-**Renovation permits**
+### Renovation permits
 
 - "CONVERT FROM 3 TO 4 UNITS" adds one. "DECONVERT 3 UNITS TO SINGLE FAMILY" removes two. "COMBINE 2 UNITS" removes one.
 - An ADU, coach house or basement conversion adds one, or the stated number.
@@ -56,11 +57,14 @@ More than half of all voluntary demolitions are followed by new construction at 
 - A conversion of an office, store, warehouse or other non-residential space states its unit count, which is added.
 - Any other renovation counts zero, including a full gut rehab of an occupied or vacant building.
 
-**Demolition permits**
+### Demolition permits
 
 - A demolition marked EMERGENCY or court-ordered is excluded from the count and shown separately.
-- Newer demolition permits state the residential unit count. For older ones, the parcel is looked up in Cook County Assessor records for the year before the demolition to find how many units the building had.
+- Newer demolition permits state the residential unit count, and that count is believed.
+- For permits that do not, the building is looked up in Cook County Assessor records for the year before the demolition. When the permit lists parcel numbers, those parcels are used. When it does not, every parcel the assessor files at the permit's address is used, and their units are added together: a building on a double lot, or an assemblage of several lots, is one demolition. Single-family and condo classes count one; two-to-six-unit buildings use the assessor's apartment count; larger apartment buildings use the assessor's commercial valuation unit count; commercial, industrial and vacant classes count zero.
+- Several demolition permits at one address or parcel within six months are one demolition. Each parcel counts once however many permits mention it. When the permits state counts, distinct buildings are added and a re-issued permit with the same wording counts once. When a group mixes permits that state a count with ones that do not, the larger of the stated and assessor totals is used.
 - A demolition whose parcel cannot be found counts two units if the description says "multi-unit", one if it says "residence", and is flagged for review.
+- A building the permit calls mixed use but the assessor files as commercial, with no apartments, counts zero and is flagged for review.
 
 ## The rank
 
@@ -83,18 +87,75 @@ The dollar figure on each project is the estimated construction cost the applica
 
 A handful of permits since 2023 carry no ward and no coordinates and cannot be placed. They are excluded and the count is stated in the site footer.
 
+## Flags
+
+Each project in a ward's list carries flags that say where its number came from, or why it is not counted. Tap a flag on the site for its meaning; the same text is here.
+
+### Emergency
+
+A city-ordered demolition of a derelict or dangerous building. Shown, never counted against the ward.
+
+### Merged into rebuild
+
+A demolition followed by new construction at the same address within two years. Its units are subtracted on the new building's row and not counted here.
+
+### Not counted
+
+Not included in the ward's totals: the unit count is zero or could not be read.
+
+### Needs review
+
+The rules were not sure about this permit. It is in the public review queue, and the count shown stands until a person corrects it.
+
+### Replaces units
+
+A building demolished at this address within two years of this permit. Its units are subtracted from this row.
+
+### Multiple permits
+
+Several permits at this address or parcel were combined into one project, so nothing is counted twice.
+
+### Assessor count
+
+The permit did not state a unit count. It comes from Cook County Assessor records for the parcel in the year before the demolition.
+
+### Several parcels
+
+The assessor files more than one parcel under this address. Their units were added together.
+
+### No parcel found
+
+No Cook County parcel matched this address, so the count is taken from the permit's wording: 2 for multi-unit, 1 for residence, otherwise 0.
+
+### Mixed use, no units
+
+The permit calls the building mixed use, but the assessor files it as commercial with no apartments. Counted as zero and flagged for review.
+
+### Corrected
+
+A person read this permit and recorded the count in the public corrections file.
+
+### Subsidized
+
+Matches a development on the city's Affordable Rental Housing list.
+
+### Ward mismatch
+
+The permit's coordinates fall in a different ward from the one the city recorded. The city's ward is used.
+
 ## Known limitations
 
 - Permitted is not built. Some permits expire unbuilt.
 - Unit parsing takes the largest number in a description, so a two-unit building with a one-unit coach house in the same permit counts two until reviewed.
 - A demolition whose rebuild permit has not been issued yet counts as a loss until it is; once the rebuild appears, the loss moves to the rebuild's date. Rankings for recent windows can therefore shift a little as rebuild permits arrive.
 - Assessor records lag about a year, so a parcel demolished and rebuilt inside a year can read as its old use.
+- When the assessor files several parcels under one address, all of them count when that address is demolished, even if only one building came down. Parcels sharing an address are almost always one property, and the review queue catches the rest.
 - The existing-unit denominator is a fixed snapshot; fast-growing wards look slightly better than they are.
 - Office-to-residential conversions count only when the permit states a unit count.
 - Vacancy is invisible both ways: a derelict building rehabbed back into use counts zero, and a building that falls vacant without a demolition permit counts zero.
-- The ward on each permit is the city's; where the permit's coordinates fall in a different ward it is logged, not corrected.
+- The ward on each permit is the city's; where the permit's coordinates fall in a different ward it is flagged, not corrected.
 - Permits lag approvals, so a new alder's first year reflects the predecessor's zoning decisions.
 
 ## Corrections
 
-Permits the rules cannot read go to a review queue. A person reads the permit and records the right count in a corrections file that the nightly run applies. The queue and the corrections file are in the public repository.
+Permits the rules cannot read go to a review queue. A person reads the permit and records the right count in a corrections file that the nightly run applies. The queue and the corrections file are in the public repository. A correction on any permit of a multi-permit demolition settles that demolition: corrected permits are added and the others contribute nothing, so correct every permit in the group.

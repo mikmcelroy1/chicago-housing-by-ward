@@ -245,3 +245,8 @@ export function demoFallbackUnits(hint: Classification["demo_hint"]): { units: n
   if (hint === "single") return { units: 1, needs_review: true };
   return { units: 0, needs_review: false };
 }
+
+/** The description calls the building mixed use: shops or offices below, apartments above. */
+export function isMixedUse(desc: string): boolean {
+  return /\bMIXED[- ]?USE\b/.test(normalize(desc));
+}

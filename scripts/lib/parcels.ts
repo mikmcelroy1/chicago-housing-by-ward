@@ -1,6 +1,11 @@
 /**
- * Cook County Assessor lookups for demolitions: address -> PIN, and PIN -> unit count the year before the permit.
- * Results are cached in data/cache/parcels.json so a nightly run only looks up new permits.
+ * Cook County Assessor lookups for demolitions: address -> every parcel at that address, and parcel -> unit count
+ * the year before the permit.
+ *
+ * Results are cached so a nightly run only asks about new permits: in the parcel_cache table when the ETL has a
+ * database (migration 003), otherwise in data/cache/parcels.json. Misses (no parcel at an address, no record for a
+ * parcel) are kept for the run but never saved, so they are retried next time and self-heal once the assessor
+ * publishes the data.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -17,8 +22,10 @@ const SMALL_MULTI = new Set(["211", "212"]);
 const WORD: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6 };
 
 export interface ParcelCache {
-  addressToPin: Record<string, string | null>;        // "2129 N OAKLEY AVE" -> 14-digit pin
-  unitsByPinYear: Record<string, ParcelUnits | null>; // "14311200150000:2025" -> result
+  /** "474 N MILWAUKEE AVE" -> every 14-digit PIN the assessor files at that address, sorted. Empty = none (not saved). */
+  addressToPins: Record<string, string[]>;
+  /** "17091050310000:2025" -> the record used, or null when the parcel has no record in that year or the two before (not saved). */
+  unitsByPinYear: Record<string, ParcelUnits | null>;
 }
 export interface ParcelUnits {
   pin: string;
@@ -28,15 +35,80 @@ export interface ParcelUnits {
   source: "improvement_chars" | "class_sfr" | "class_vacant" | "commercial_valuation" | "class_other";
 }
 
+export function emptyParcelCache(): ParcelCache {
+  return { addressToPins: {}, unitsByPinYear: {} };
+}
+
+/** Drop misses so they are retried next run. */
+export function pruneParcelCache(cache: ParcelCache): ParcelCache {
+  return {
+    addressToPins: Object.fromEntries(Object.entries(cache.addressToPins).filter(([, pins]) => pins.length > 0)),
+    unitsByPinYear: Object.fromEntries(Object.entries(cache.unitsByPinYear).filter(([, r]) => r !== null)),
+  };
+}
+
+// --- file cache (dry runs and local development) --------------------------------------------------
+
 export function loadParcelCache(cacheDir = join(process.cwd(), "data", "cache")): ParcelCache {
   mkdirSync(cacheDir, { recursive: true });
   const p = join(cacheDir, "parcels.json");
-  if (!existsSync(p)) return { addressToPin: {}, unitsByPinYear: {} };
-  return JSON.parse(readFileSync(p, "utf8")) as ParcelCache;
+  if (!existsSync(p)) return emptyParcelCache();
+  // Files written before October 2026 had addressToPin (one PIN per address); those entries are re-resolved.
+  const raw = JSON.parse(readFileSync(p, "utf8")) as Partial<ParcelCache>;
+  return { addressToPins: raw.addressToPins ?? {}, unitsByPinYear: raw.unitsByPinYear ?? {} };
 }
 export function saveParcelCache(cache: ParcelCache, cacheDir = join(process.cwd(), "data", "cache")): void {
-  writeFileSync(join(cacheDir, "parcels.json"), JSON.stringify(cache));
+  writeFileSync(join(cacheDir, "parcels.json"), JSON.stringify(pruneParcelCache(cache)));
 }
+
+// --- database cache (parcel_cache table) -----------------------------------------------------------
+
+export interface Queryable {
+  query(text: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
+}
+export interface CacheKeys {
+  addresses: Set<string>;
+  units: Set<string>;
+}
+
+/** The keys present now, taken before a run so saveParcelCacheDb only writes what the run added. */
+export function cacheKeys(cache: ParcelCache): CacheKeys {
+  return { addresses: new Set(Object.keys(cache.addressToPins)), units: new Set(Object.keys(cache.unitsByPinYear)) };
+}
+
+export async function loadParcelCacheDb(db: Queryable): Promise<ParcelCache> {
+  const cache = emptyParcelCache();
+  const { rows } = await db.query("select kind, key, value from parcel_cache");
+  for (const r of rows) {
+    if (r.kind === "address") cache.addressToPins[String(r.key)] = r.value as string[];
+    else if (r.kind === "units") cache.unitsByPinYear[String(r.key)] = r.value as ParcelUnits;
+  }
+  return cache;
+}
+
+/** Upsert the hits added since `before`. Returns how many rows were written. */
+export async function saveParcelCacheDb(db: Queryable, cache: ParcelCache, before: CacheKeys): Promise<number> {
+  const pruned = pruneParcelCache(cache);
+  const rows: [string, string, unknown][] = [];
+  for (const [k, v] of Object.entries(pruned.addressToPins)) if (!before.addresses.has(k)) rows.push(["address", k, v]);
+  for (const [k, v] of Object.entries(pruned.unitsByPinYear)) if (!before.units.has(k)) rows.push(["units", k, v]);
+  for (const batch of chunk(rows, 500)) {
+    const params: unknown[] = [];
+    const tuples = batch.map(([kind, key, value]) => {
+      params.push(kind, key, JSON.stringify(value));
+      const b = params.length - 3;
+      return `($${b + 1},$${b + 2},$${b + 3}::jsonb)`;
+    });
+    await db.query(
+      `insert into parcel_cache (kind, key, value) values ${tuples.join(",")}
+       on conflict (kind, key) do update set value = excluded.value, updated_at = now()`,
+      params,
+    );
+  }
+  return rows.length;
+}
+
+// --- lookups ----------------------------------------------------------------------------------------
 
 export function pin14(pin10: string): string {
   const digits = pin10.replace(/\D/g, "");
@@ -54,23 +126,30 @@ function chunk<T>(arr: T[], n: number): T[][] {
   return out;
 }
 
-/** Resolve addresses to PINs in batches of 40 using starts_with on the assessor's address table. */
+/**
+ * Every parcel the assessor files at an address. Parcels whose address is exactly the permit's win (a building on
+ * a double lot, or an assemblage, is several of them); only when there are none do parcels whose address starts
+ * with it count (condo units, a rear building). Sorted, so the result never depends on the order the API returned.
+ */
+export function pinsForAddress(rows: { pin: string; prop_address_full: string }[], address: string): string[] {
+  const exact = rows.filter((r) => r.prop_address_full === address);
+  const hits = exact.length ? exact : rows.filter((r) => r.prop_address_full.startsWith(address + " "));
+  return [...new Set(hits.map((r) => pin14(r.pin)))].sort();
+}
+
+/** Resolve addresses to parcels in batches of 40 against the assessor's address table. */
 export async function resolveAddresses(addresses: string[], cache: ParcelCache): Promise<void> {
-  const todo = [...new Set(addresses.map(normalizeAddress))].filter((a) => !(a in cache.addressToPin));
+  const todo = [...new Set(addresses.map(normalizeAddress))].filter((a) => a && !(a in cache.addressToPins));
   for (const batch of chunk(todo, 40)) {
     const where = `prop_address_city_name='CHICAGO' AND (${batch.map((a) => `starts_with(prop_address_full, ${lit(a + " ")}) OR prop_address_full=${lit(a)}`).join(" OR ")})`;
-    const rows = await soql<{ pin: string; year: string; prop_address_full: string }>(COOK, ADDRESSES, {
-      select: "pin,year,prop_address_full",
+    const rows = await soql<{ pin: string; prop_address_full: string }>(COOK, ADDRESSES, {
+      select: "pin,prop_address_full",
       where,
-      order: "year DESC",
-      limit: 5000,
+      group: "pin,prop_address_full",
+      order: "pin",
+      limit: 20_000,
     });
-    for (const a of batch) {
-      // Prefer an exact match, then the shortest address that starts with it (the base parcel, not a condo unit).
-      const hits = rows.filter((r) => r.prop_address_full === a || r.prop_address_full.startsWith(a + " "));
-      hits.sort((x, y) => x.prop_address_full.length - y.prop_address_full.length || Number(y.year) - Number(x.year));
-      cache.addressToPin[a] = hits[0]?.pin ?? null;
-    }
+    for (const a of batch) cache.addressToPins[a] = pinsForAddress(rows, a);
   }
 }
 
