@@ -42,6 +42,7 @@ export type FlagKey =
   | "summed_parcels"
   | "no_parcel"
   | "mixed_use_zero"
+  | "held"
   | "overridden"
   | "subsidized"
   | "ward_mismatch";
@@ -70,6 +71,8 @@ export interface ParcelLookup {
   cls: string | null; // assessor class, e.g. "212"; null = no record for the years tried
   units: number | null; // null = no record, or a class with no unit count
   year: number | null; // assessment year the record came from
+  /** Fingerprint of the building record; lots that share one are one building and count once. */
+  sig: string | null;
 }
 
 export interface Classification {

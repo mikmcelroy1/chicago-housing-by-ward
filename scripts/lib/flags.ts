@@ -17,6 +17,7 @@ export type FlagIcon =
   | "layout-grid"
   | "circle-dashed"
   | "store"
+  | "circle-pause"
   | "pencil-line"
   | "hand-coins"
   | "map-pin-off";
@@ -68,7 +69,7 @@ export const FLAGS: readonly FlagDef[] = [
     anchor: "not-counted",
     icon: "ban",
     tone: "warn",
-    derive: (p) => !p.counted && p.merged_into === null && p.kind !== "emergency_demolition",
+    derive: (p) => !p.counted && p.merged_into === null && p.kind !== "emergency_demolition" && !(p.flags ?? []).includes("held"),
   },
   {
     key: "needs_review",
@@ -132,6 +133,15 @@ export const FLAGS: readonly FlagDef[] = [
       "The permit calls the building mixed use, but the assessor files it as commercial with no apartments. Counted as zero and flagged for review.",
     anchor: "mixed-use-no-units",
     icon: "store",
+    tone: "warn",
+  },
+  {
+    key: "held",
+    label: "Held for review",
+    description:
+      "A demolition of seven or more units read from assessor records. Shown but not counted until a person confirms it in the corrections file.",
+    anchor: "held-for-review",
+    icon: "circle-pause",
     tone: "warn",
   },
   {

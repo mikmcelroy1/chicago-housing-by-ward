@@ -22,7 +22,7 @@ function build(items: ClassifiedPermit[]) {
   return buildProjects(items, opts);
 }
 /** A demolition permit resolved against the assessor: units are the parcels' units added together. */
-function assessorDemo(o: Partial<Permit> & { issue_date: string }, parcels: { pin: string; units: number | null; cls?: string }[], extra: Partial<Classification> = {}): ClassifiedPermit {
+function assessorDemo(o: Partial<Permit> & { issue_date: string }, parcels: { pin: string; units: number | null; cls?: string; sig?: string }[], extra: Partial<Classification> = {}): ClassifiedPermit {
   const known = parcels.filter((p) => p.units !== null);
   return {
     permit: permit({ permit_type: DEMO, ...o }),
@@ -31,7 +31,7 @@ function assessorDemo(o: Partial<Permit> & { issue_date: string }, parcels: { pi
       units: known.length ? known.reduce((s, p) => s + (p.units ?? 0), 0) : null,
       units_source: known.length ? "assessor" : "unknown",
       demo_hint: "none",
-      parcels: parcels.map((p) => ({ pin: p.pin, units: p.units, cls: p.cls ?? null, year: 2025 })),
+      parcels: parcels.map((p) => ({ pin: p.pin, units: p.units, cls: p.cls ?? null, year: 2025, sig: p.sig ?? null })),
       ...extra,
     }),
   };
@@ -150,7 +150,7 @@ test("a group that mixes a stated count with an assessor count uses the larger; 
   const house = assessorDemo({ issue_date: "2026-09-20" }, [{ pin: "P1", units: 3, cls: "211" }]);
   assert.equal(demolitionUnits([garage, house]).units, 3);
   assert.equal(demolitionUnits([garage, house]).source, "assessor");
-  const stated = { permit: permit({ permit_type: DEMO, issue_date: "2026-09-20", description: "HOUSE. 2 RESIDENTIAL UNITS." }), cls: cls({ category: "demolition", units: 2, units_source: "structured_demo", demo_hint: "none", parcels: [{ pin: "P1", units: 3, cls: "211", year: 2025 }] }) };
+  const stated = { permit: permit({ permit_type: DEMO, issue_date: "2026-09-20", description: "HOUSE. 2 RESIDENTIAL UNITS." }), cls: cls({ category: "demolition", units: 2, units_source: "structured_demo", demo_hint: "none", parcels: [{ pin: "P1", units: 3, cls: "211", year: 2025, sig: null }] }) };
   assert.equal(demolitionUnits([stated]).units, 2, "a permit that states its count is believed over a stale assessor record");
 });
 
@@ -195,4 +195,38 @@ test("new-construction clusters carry the multi-permit flag", () => {
   assert.equal(p.units_delta, 40);
   assert.deepEqual(p.flags, ["multi_permit"]);
   assert.equal(p.ward_geom_mismatch, false);
+});
+
+test("3310 N Lincoln: three lots carrying the same building record are one three-flat", () => {
+  const sig = "bldg:212|Three|13968|1927";
+  const demo = assessorDemo({ issue_date: "2024-04-23", address: "3310 N LINCOLN AVE", description: "WRECK AND REMOVE A 3 STORY MASONRY MIXED USE BUILDING" }, [
+    { pin: "14194240110000", units: 3, cls: "212", sig },
+    { pin: "14194240130000", units: 3, cls: "212", sig },
+    { pin: "14194240180000", units: 3, cls: "212", sig },
+    { pin: "14194240210000", units: null },
+  ]);
+  demo.cls.units = 3; // what resolveDemolitions writes after counting the fingerprint once
+  const [p] = build([demo]);
+  assert.equal(p.units_delta, -3);
+  assert.equal(p.counted, true);
+  const two = assessorDemo({ issue_date: "2024-04-23" }, [{ pin: "A", units: 3, cls: "212", sig: "bldg:212|Three|2400|1910" }, { pin: "B", units: 2, cls: "211", sig: "bldg:211|Two|1800|1905" }]);
+  assert.equal(demolitionUnits([two]).units, 5, "different buildings on one address still add");
+});
+
+test("a large assessor count is held: shown, flagged, not counted until a correction confirms it", () => {
+  const big = assessorDemo({ issue_date: "2026-03-01", address: "100 W BIG ST" }, [{ pin: "P1", units: 8, cls: "313" }]);
+  const [p] = build([big]);
+  assert.equal(p.counted, false);
+  assert.equal(p.needs_review, true);
+  assert.equal(p.units_delta, -8, "the number stays visible");
+  assert.deepEqual(p.flags, ["needs_review", "assessor_units", "held"]);
+  assert.equal(big.cls.needs_review, true, "and the permit goes to the review queue");
+  const six = assessorDemo({ issue_date: "2026-03-01", address: "102 W BIG ST" }, [{ pin: "P2", units: 6, cls: "211" }]);
+  assert.equal(build([six])[0].counted, true, "six units is below the hold");
+  const stated = { permit: permit({ permit_type: DEMO, issue_date: "2026-03-01", address: "104 W BIG ST", description: "DEMOLITION OF A 4 STORY BUILDING. 12 RESIDENTIAL UNITS." }), cls: cls({ category: "demolition", units: 12, units_source: "structured_demo", demo_hint: "none" }) };
+  assert.equal(build([stated])[0].counted, true, "a count the city states is never held");
+  const corrected = { permit: permit({ permit_type: DEMO, issue_date: "2026-03-01", address: "106 W BIG ST" }), cls: cls({ category: "demolition", units: 10, units_source: "override" }) };
+  assert.equal(build([corrected])[0].counted, true, "a correction is never held");
+  const emergency = assessorDemo({ issue_date: "2026-03-01", address: "108 W BIG ST" }, [{ pin: "P3", units: 9, cls: "313" }], { category: "emergency_demolition" });
+  assert.deepEqual(build([emergency])[0].flags, ["emergency", "assessor_units"], "emergency demolitions are never counted anyway, so not held");
 });

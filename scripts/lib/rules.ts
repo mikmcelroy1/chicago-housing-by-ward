@@ -165,6 +165,24 @@ function newConstructionUnits(d: string): { units: number | null; source: Classi
   return { units: null, source: "unknown", notes };
 }
 
+// --- demolition scope ------------------------------------------------------------------------
+/** Clauses about what stays ("NO WORK TO FRONT BUILDING", "EXISTING HOUSE TO REMAIN"), dropped before looking for a building word. */
+const STAYS = /\bNO WORK (?:TO|ON|AT)\b[^.;,]*|[^.;,]*\bTO REMAIN\b[^.;,]*|[^.;,]*\b(?:WILL|IS|ARE) (?:NOT|TO) (?:BE )?(?:DEMOLISHED|REMOVED|WRECKED|AFFECTED)\b[^.;,]*|[^.;,]*\bREMAINS?\b[^.;,]*/g;
+/** A whole building is coming down. "1 STORY" is not on this list: a garage has stories too. */
+const BUILDING_WORD = /\b(BUILDINGS?|BLDGS?|RESIDENCES?|DWELLINGS?|HOUSES?|HOMES?|\d-?\s?FLATS?|FLATS?|UNITS?|APARTMENTS?|TOWNHO\w+|BUNGALOWS?|COTTAGES?|DUPLEX|CONDO\w*|STRUCTURES?|GREYSTONE|COACH HOUSE)\b/;
+/** Things that can be wrecked without a dwelling going with them. */
+const PART_WORD = /\b(SMOKE ?STACKS?|CHIMNEYS?|CANOP(?:Y|IES)|AWNINGS?|SIGNS?|BILLBOARDS?|FIRE ESCAPES?|BALCON(?:Y|IES)|PARAPETS?|CORNICES?|FACADES?|ROOFTOP|PENTHOUSE|WATER TOWER|TANKS?|SILOS?|ANTENNAS?|ELEVATORS?|ESCALATORS?|VESTIBULES?|MARQUEES?|GARAGES?|SHEDS?|CARPORTS?|PORCH(?:ES)?|DECKS?|STAIRS?|STAIRCASES?|FENCES?|FENCING|RETAINING WALLS?|TRELLIS|PERGOLAS?|GAZEBOS?|POOLS?|GREENHOUSES?|ADDITIONS?|DUMPSTERS?|TRASH ENCLOSURES?|PLAYGROUNDS?|BLEACHERS?|KIOSKS?|SLABS?|FOUNDATIONS?|PAVEMENT|PARKING LOTS?|DRIVEWAYS?|PATIOS?|WALLS?|ROOFS?)\b/;
+/** The permit itself says only part of something comes down. "PARTIALLY BUILT" is a whole unfinished building, not this. */
+const PARTIAL_WORD = /\bPARTIAL(?:LY)?\b(?!\s+(?:BUILT|COMPLETED|CONSTRUCTED|ERECTED)\b)|\b(?:PORTION OF|PART OF|SELECTIVE|INTERIOR (?:DEMOLITION|DEMO|ONLY|NON-?STRUCTURAL|WORK)|NON-?STRUCTURAL)\b/;
+
+/** A wrecking permit for a part or an outbuilding, not a dwelling: zero units, no assessor lookup. */
+export function isPartialDemolition(desc: string): boolean {
+  const d = normalize(desc);
+  if (PARTIAL_WORD.test(d)) return true;
+  const kept = d.replace(STAYS, " ");
+  return PART_WORD.test(kept) && !BUILDING_WORD.test(kept);
+}
+
 export function classify(permit: Pick<Permit, "permit_type" | "description" | "pins">): Classification {
   const type = (permit.permit_type || "").toUpperCase();
   const d = normalize(permit.description);
@@ -199,16 +217,17 @@ export function classify(permit: Pick<Permit, "permit_type" | "description" | "p
 
   if (type.includes("WRECKING") || type.includes("DEMOLITION")) {
     const emergency = EMERGENCY_RE.test(d);
-    const structured = STRUCTURED_DEMO_RE.exec(d);
-    const accessoryOnly = ACCESSORY.test(d) && !/\b(BUILDING|BLDG|RESIDENCE|DWELLING|UNITS?|FLAT|STRUCTURE|HOUSE|HOME|STORY|STORIES)\b/.test(d.replace(/\bDETACHED (?:FRAME |MASONRY )?GARAGE\b/g, ""));
+    const category: Category = emergency ? "emergency_demolition" : "demolition";
     const hint: Classification["demo_hint"] = /\bMULTI[- ]?(?:UNIT|FAMILY)\b|\b[2-9]-?\s?FLAT\b|\bAPARTMENT/.test(d)
       ? "multi"
       : /\b(RESIDENCE|DWELLING|HOUSE|HOME|SINGLE[- ]FAMILY|SFR)\b/.test(d)
         ? "single"
         : "none";
-    const category: Category = emergency ? "emergency_demolition" : accessoryOnly ? "demolition_accessory" : "demolition";
-    if (accessoryOnly && !emergency) return { ...base(category, 0, "unknown", false, ["accessory only"]), demo_hint: "none" };
+    // When the city states the count, that is the answer, partial or not.
+    const structured = STRUCTURED_DEMO_RE.exec(d);
     if (structured) return { ...base(category, Number(structured[1]), "structured_demo", false, ["structured demo template"]), demo_hint: hint };
+    // A smokestack, a garage, a porch, a rear addition: nothing a dwelling goes with. Never sent to the assessor.
+    if (isPartialDemolition(d)) return { ...base("demolition_accessory", 0, "unknown", false, ["part or outbuilding only, no dwelling"]), demo_hint: "none" };
     // Unit count resolved later against the assessor; null here means "look it up".
     return { ...base(category, null, "unknown", false, ["needs parcel lookup"]), demo_hint: hint };
   }

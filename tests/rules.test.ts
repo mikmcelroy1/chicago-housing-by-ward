@@ -94,3 +94,39 @@ test("mixed use is read from the description", () => {
   assert.equal(isMixedUse("ERECT A 4 STORY MIXED-USE 9 DWELLING UNIT BUILDING"), true);
   assert.equal(isMixedUse("COMPLEX DEMOLITION: WRECK AND REMOVE A 1 STORY MASONRY COMMERCIAL GARAGE"), false);
 });
+
+test("partial demolitions and outbuildings count zero and never reach the assessor", () => {
+  const zero = [
+    "COMPLEX DEMOLITION: WRECK AND REMOVE AN EXTERIOR METAL SMOKESTACK FROM ROOF TO BASEMENT",
+    "WRECK AND REMOVE A AN OVERSIZED MASONRY GARAGE ONLY. NO WORK TO FRONT BUILDING.",
+    "WRECK AND REMOVE A 1 STORY FRAME GARAGE",
+    "WRECK AND REMOVE A 1 STORY MASONRY COMMERCIAL GARAGE",
+    "PARTIAL DEMOLITION: WRECK AND REMOVE THE REAR ADDITION OF A 3 STORY MASONRY BUILDING",
+    "WRECK AND REMOVE (PARTIAL DEMO) THE SOUTHEAST PORTION OF A 3 STORY MASONRY COMMERCIAL BUILDING",
+    "EMERGENCY WRECK AND REMOVE A DETACHED FRAME GARAGE",
+    "WRECK AND REMOVE REAR WOOD PORCH AND STAIRS",
+    "WRECK AND REMOVE 1 FLY ASH TANK ONLY",
+  ];
+  for (const d of zero) {
+    const r = c(DEMO, d);
+    assert.equal(r.category, "demolition_accessory", d);
+    assert.equal(r.units, 0, d);
+  }
+  const lookup = [
+    "WRECK AND REMOVE A 2 STORY FRAME RESIDENCE AND A DETACHED FRAME GARAGE",
+    "WRECK AND REMOVE A 2 STORY FRAME RESIDENCE WITH AN ATTACHED FRAME GARAGE",
+    "WRECK AND REMOVE A PARTIALLY BUILT BLOCK BUILDING (ERECTED WITHOUT A PERMIT)",
+    "WRECK AND REMOVE A 1 AND 2 STORY MASONRY BUILDING",
+    "WRECK AND REMOVE A 2 STORY FRAME COACH HOUSE",
+    "WRECK AND REMOVE A 3 STORY MASONRY MIXED USE BUILDING",
+  ];
+  for (const d of lookup) {
+    const r = c(DEMO, d);
+    assert.equal(r.category, "demolition", d);
+    assert.equal(r.units, null, d);
+  }
+  assert.equal(c(DEMO, "EMERGENCY WRECK AND REMOVE A 2 STORY MASONRY BUILDING AND GARAGE").category, "emergency_demolition");
+  const stated = c(DEMO, "PARTIAL DEMOLITION OF A 3 STORY BUILDING. 2 RESIDENTIAL UNITS. 0 NON-RESIDENTIAL UNITS.");
+  assert.equal(stated.category, "demolition");
+  assert.equal(stated.units, 2, "a count the city states wins over partial wording");
+});

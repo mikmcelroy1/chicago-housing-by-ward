@@ -22,6 +22,8 @@ export interface BuildOptions {
 const CLUSTER_DAYS = 36 * 30.5;
 /** Demolition permits at one address or parcel within this many days are one demolition. */
 export const DEMO_GROUP_DAYS = 180;
+/** An assessor-sourced demolition of this many units or more is held: shown and flagged, not counted until a correction confirms it. */
+export const HOLD_UNITS = 7;
 /** A demolition within this many days of new construction at the same address or parcel is part of that project. */
 export const REPLACEMENT_DAYS = 730;
 
@@ -99,7 +101,8 @@ const HINT_RANK: Record<NonNullable<Classification["demo_hint"]>, number> = { mu
 /**
  * Units removed by one demolition, which may be several permits at one address or parcel.
  * - A correction on any permit settles it: corrected permits are added, the rest contribute nothing.
- * - Otherwise each assessor parcel counts once however many permits mention it, and the parcels' units are added.
+ * - Otherwise each assessor parcel counts once however many permits mention it, lots that carry the same building
+ *   record count once, and the parcels' units are added.
  * - A permit that states its count is believed: distinct buildings add, a re-issued permit with the same wording
  *   counts once. When a group mixes permits that state a count with ones that do not, the larger of the stated
  *   and assessor totals is used.
@@ -113,10 +116,12 @@ export function demolitionUnits(members: ClassifiedPermit[]): DemolitionUnits {
   const review = members.some((m) => m.cls.needs_review);
   const parcels = new Map<string, number | null>();
   for (const m of members) {
-    const list = m.cls.parcels ?? (m.cls.units_source === "assessor" && m.cls.units !== null ? [{ pin: m.permit.pins[0] ?? m.permit.id, units: m.cls.units }] : []);
+    const list = m.cls.parcels ?? (m.cls.units_source === "assessor" && m.cls.units !== null ? [{ pin: m.permit.pins[0] ?? m.permit.id, units: m.cls.units, sig: null }] : []);
     for (const p of list) {
-      const cur = parcels.get(p.pin);
-      if (cur === undefined || cur === null) parcels.set(p.pin, p.units);
+      // Lots that carry the same building record are one building.
+      const k = p.sig ?? p.pin;
+      const cur = parcels.get(k);
+      if (cur === undefined || cur === null) parcels.set(k, p.units);
     }
   }
   const known = [...parcels.values()].filter((u): u is number => u !== null);
@@ -271,7 +276,17 @@ export function buildProjects(items: ClassifiedPermit[], opts: BuildOptions): Pr
         continue;
       }
       const du = demolitionUnits(members);
+      const emergency = category === "emergency_demolition";
       const mixedUse = du.units === 0 && (du.source === "assessor" || du.source === "fallback") && members.some((m) => isMixedUse(m.permit.description));
+      // A big loss read from assessor records waits for a person: the two largest ever were both wrong.
+      const held = !emergency && du.source === "assessor" && du.units >= HOLD_UNITS;
+      if (held) {
+        for (const m of members) {
+          if (m.cls.units_source !== "assessor") continue;
+          m.cls.needs_review = true;
+          m.cls.notes.push(`held: ${du.units} units from the assessor; a row in overrides.csv confirms it`);
+        }
+      }
       // Put the reasons on the permits too, so they reach permit_class and the review queue.
       if (du.source === "fallback" && du.units > 0) {
         for (const m of members) {
@@ -288,13 +303,13 @@ export function buildProjects(items: ClassifiedPermit[], opts: BuildOptions): Pr
         }
       }
       const primary = pickPrimary(members, du.source);
-      const emergency = category === "emergency_demolition";
       const flags: FlagKey[] = [];
       if (members.length > 1) flags.push("multi_permit");
       if (du.source === "assessor") flags.push("assessor_units");
       if (du.source === "assessor" && du.parcels > 1) flags.push("summed_parcels");
       if (du.source === "fallback") flags.push("no_parcel");
       if (mixedUse) flags.push("mixed_use_zero");
+      if (held) flags.push("held");
       if (du.source === "override") flags.push("overridden");
       projects.push(
         finish({
@@ -303,7 +318,7 @@ export function buildProjects(items: ClassifiedPermit[], opts: BuildOptions): Pr
           kind: emergency ? "emergency_demolition" : "demolition",
           ward: placed.ward,
           units_delta: 0 - du.units,
-          counted: !emergency && du.units > 0,
+          counted: !emergency && du.units > 0 && !held,
           first_issue_date: anchor.permit.issue_date,
           primary_permit_id: primary.permit.id,
           permit_no: primary.permit.permit_no,
@@ -315,7 +330,7 @@ export function buildProjects(items: ClassifiedPermit[], opts: BuildOptions): Pr
           description: primary.permit.description,
           reported_cost: primary.permit.reported_cost,
           review_type: primary.permit.review_type,
-          needs_review: du.needs_review || mixedUse,
+          needs_review: du.needs_review || mixedUse || held,
           ward_geom_mismatch: placed.mismatch,
           flags,
         }),

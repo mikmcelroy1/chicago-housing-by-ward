@@ -34,7 +34,10 @@ and METHODOLOGY.md in sync when a rule changes.
   its address, added together (the assessor files several parcels under one address more often than you'd
   think); demolition permits at one address or parcel within 180 days are one project so a parcel never
   counts twice. Lookups persist in the `parcel_cache` table (file cache for dry runs); misses are never saved,
-  so they self-heal. Never pick "the first parcel the API returned".
+  so they self-heal. Never pick "the first parcel the API returned". Retired PINs (the county renumbers lots)
+  and lots carrying the same building record are left out or counted once, see parcels.ts. A permit for a part or
+  an outbuilding (smokestack, garage, porch) is `demolition_accessory` with 0 units and never looked up. An
+  assessor-sourced demolition of 7+ units is held (not counted) until overrides.csv confirms it.
 - Flags are one registry. To add one: a key in `FlagKey` (scripts/lib/types.ts), an entry in
   `scripts/lib/flags.ts`, and a `### <label>` heading with the same one-sentence description under `## Flags`
   in docs/METHODOLOGY.md. `tests/flags.test.ts` fails until all three agree. Flags the site can tell from the

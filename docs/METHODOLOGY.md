@@ -61,10 +61,12 @@ More than half of all voluntary demolitions are followed by new construction at 
 
 - A demolition marked EMERGENCY or court-ordered is excluded from the count and shown separately.
 - Newer demolition permits state the residential unit count, and that count is believed.
-- For permits that do not, the building is looked up in Cook County Assessor records for the year before the demolition. When the permit lists parcel numbers, those parcels are used. When it does not, every parcel the assessor files at the permit's address is used, and their units are added together: a building on a double lot, or an assemblage of several lots, is one demolition. Single-family and condo classes count one; two-to-six-unit buildings use the assessor's apartment count; larger apartment buildings use the assessor's commercial valuation unit count; commercial, industrial and vacant classes count zero.
+- A permit that takes down only a part or an outbuilding, such as a smokestack, chimney, canopy, garage, porch or rear addition, with no dwelling named, or that says partial, portion or interior, counts zero units and is never sent to the assessor.
+- For permits that do not, the building is looked up in Cook County Assessor records for the year before the demolition. When the permit lists parcel numbers, those parcels are used. When it does not, every parcel the assessor files at the permit's address is used, and their units are added together: a building on a double lot, or an assemblage of several lots, is one demolition. A lot the assessor stopped listing at that address more than a year before the lookup year is ignored, because the county renumbers lots and the old number would count the same building twice. Lots that carry the same building record, which is how the assessor files one building standing on several lots, are counted once. Single-family and condo classes count one; two-to-six-unit buildings use the assessor's apartment count; larger apartment buildings use the assessor's commercial valuation unit count; commercial, industrial and vacant classes count zero.
 - Several demolition permits at one address or parcel within six months are one demolition. Each parcel counts once however many permits mention it. When the permits state counts, distinct buildings are added and a re-issued permit with the same wording counts once. When a group mixes permits that state a count with ones that do not, the larger of the stated and assessor totals is used.
 - A demolition whose parcel cannot be found counts two units if the description says "multi-unit", one if it says "residence", and is flagged for review.
 - A building the permit calls mixed use but the assessor files as commercial, with no apartments, counts zero and is flagged for review.
+- A demolition of seven or more units read from assessor records is held: shown, flagged, and not counted until a person confirms it in the corrections file. A count the permit states is never held.
 
 ## The rank
 
@@ -131,6 +133,10 @@ No Cook County parcel matched this address, so the count is taken from the permi
 
 The permit calls the building mixed use, but the assessor files it as commercial with no apartments. Counted as zero and flagged for review.
 
+### Held for review
+
+A demolition of seven or more units read from assessor records. Shown but not counted until a person confirms it in the corrections file.
+
 ### Corrected
 
 A person read this permit and recorded the count in the public corrections file.
@@ -150,6 +156,7 @@ The permit's coordinates fall in a different ward from the one the city recorded
 - A demolition whose rebuild permit has not been issued yet counts as a loss until it is; once the rebuild appears, the loss moves to the rebuild's date. Rankings for recent windows can therefore shift a little as rebuild permits arrive.
 - Assessor records lag about a year, so a parcel demolished and rebuilt inside a year can read as its old use.
 - When the assessor files several parcels under one address, all of them count when that address is demolished, even if only one building came down. Parcels sharing an address are almost always one property, and the review queue catches the rest.
+- Two identical buildings at one address, same class, size and year built, read as one, because that is also how the assessor files one building on several lots.
 - The existing-unit denominator is a fixed snapshot; fast-growing wards look slightly better than they are.
 - Office-to-residential conversions count only when the permit states a unit count.
 - Vacancy is invisible both ways: a derelict building rehabbed back into use counts zero, and a building that falls vacant without a demolition permit counts zero.
@@ -158,4 +165,4 @@ The permit's coordinates fall in a different ward from the one the city recorded
 
 ## Corrections
 
-Permits the rules cannot read go to a review queue. A person reads the permit and records the right count in a corrections file that the nightly run applies. The queue and the corrections file are in the public repository. A correction on any permit of a multi-permit demolition settles that demolition: corrected permits are added and the others contribute nothing, so correct every permit in the group.
+Permits the rules cannot read go to a review queue. A person reads the permit and records the right count in a corrections file that the nightly run applies. The queue and the corrections file are in the public repository. A correction on any permit of a multi-permit demolition settles that demolition: corrected permits are added and the others contribute nothing, so correct every permit in the group. A held demolition counts once its permit has a corrections row.

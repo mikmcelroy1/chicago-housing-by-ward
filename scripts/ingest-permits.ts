@@ -25,6 +25,7 @@ import {
   normalizeAddress,
   pin14,
   resolveAddresses,
+  liveParcels,
   resolveUnits,
   saveParcelCache,
   saveParcelCacheDb,
@@ -152,13 +153,21 @@ async function resolveDemolitions(items: ClassifiedPermit[], resolvedPins: Map<s
   await resolveAddresses(demos.filter(({ permit }) => permit.pins.length === 0).map(({ permit }) => permit.address), cache);
   const lookups: { item: ClassifiedPermit; pins: string[]; year: number }[] = [];
   for (const item of demos) {
-    const pins = item.permit.pins.length ? [...new Set(item.permit.pins.map(pin14))].sort() : (cache.addressToPins[normalizeAddress(item.permit.address)] ?? []);
+    const year = Number(item.permit.issue_date.slice(0, 4)) - 1;
+    let pins: string[];
+    if (item.permit.pins.length) pins = [...new Set(item.permit.pins.map(pin14))].sort();
+    else {
+      // The county renumbers lots; a retired PIN would count the same building twice.
+      const { live, retired } = liveParcels(cache.addressToPins[normalizeAddress(item.permit.address)] ?? [], year);
+      pins = live;
+      if (retired.length) item.cls.notes.push(`retired parcels left out: ${retired.join(", ")}`);
+    }
     if (!pins.length) {
       item.cls.parcels = [];
       item.cls.notes.push("no assessor parcel at this address");
       continue;
     }
-    lookups.push({ item, pins, year: Number(item.permit.issue_date.slice(0, 4)) - 1 });
+    lookups.push({ item, pins, year });
   }
   await resolveUnits(lookups.flatMap(({ pins, year }) => pins.map((pin) => ({ pin, year }))), cache);
   let hit = 0;
@@ -171,14 +180,25 @@ async function resolveDemolitions(items: ClassifiedPermit[], resolvedPins: Map<s
           ? `assessor ${pin}: class ${r.cls} ${r.units === null ? "has no unit count" : `= ${r.units} units`} (${r.source}, ${r.year})`
           : `assessor ${pin}: no record for ${year - 2}-${year}`,
       );
-      return { pin, cls: r?.cls ?? null, units: r?.units ?? null, year: r?.year ?? null };
+      return { pin, cls: r?.cls ?? null, units: r?.units ?? null, year: r?.year ?? null, sig: r?.sig ?? null };
     });
     item.cls.parcels = parcels;
-    const known = parcels.filter((p) => p.units !== null);
+    // One building on several lots carries the same record on each lot: count it once.
+    const seen = new Set<string>();
+    const known: ParcelLookup[] = [];
+    for (const p of parcels) {
+      if (p.units === null) continue;
+      const k = p.sig ?? p.pin;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      known.push(p);
+    }
     if (known.length) {
       item.cls.units = known.reduce((s, p) => s + (p.units ?? 0), 0);
       item.cls.units_source = "assessor";
-      if (parcels.length > 1) item.cls.notes.push(`summed across ${parcels.length} parcels`);
+      const dupes = parcels.filter((p) => p.units !== null).length - known.length;
+      if (dupes > 0) item.cls.notes.push(`${dupes} parcel${dupes === 1 ? " carries" : "s carry"} the same building record and counted once`);
+      if (known.length > 1) item.cls.notes.push(`summed across ${known.length} parcels`);
       hit++;
     }
     // A class the assessor files but gives no unit count for (large apartment buildings without a valuation row).
