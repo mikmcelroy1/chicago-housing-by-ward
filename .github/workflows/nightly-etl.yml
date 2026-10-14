@@ -34,10 +34,13 @@ jobs:
         run: npm run sync-wards
       - name: Pull, classify, and load permits
         run: npm run etl
-      - name: Upload the review queue
+      - name: Upload the review queue, golden mismatches and drift
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: review-queue
-          path: data/review-queue.csv
+          path: |
+            data/review-queue.csv
+            data/golden-mismatches.csv
+            data/drift.csv
           if-no-files-found: ignore

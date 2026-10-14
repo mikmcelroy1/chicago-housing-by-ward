@@ -42,6 +42,15 @@ and METHODOLOGY.md in sync when a rule changes.
   `scripts/lib/flags.ts`, and a `### <label>` heading with the same one-sentence description under `## Flags`
   in docs/METHODOLOGY.md. `tests/flags.test.ts` fails until all three agree. Flags the site can tell from the
   row have a `derive`; the rest are set in projects.ts and stored in `projects.flags`.
+- The golden list, `data/golden.csv`, is every permit a person has checked, with the agreed answer. A spot check
+  that finds a problem adds the permit with the right answer and a neighbor or two that must not change; a wrong
+  answer we know about and have not fixed is a row with status `known_gap`. `tests/golden.test.ts` checks what
+  the rules read from each row's text; the ETL checks the final numbers every run and a live run goes red on a
+  mismatch (data/golden-mismatches.csv, uploaded by the workflow). Never fix a golden row by changing its answer
+  to what the code says; fix the code or mark it known_gap.
+- The drift alarm: a live run compares every project with last run's. Same project, same permits, different
+  units or kind is drift. With the same commit it is the county's or the city's data moving and the run goes
+  red (data/drift.csv); after a push it is expected and the impact report covers it.
 - Every change that can move a number ships with an impact report in `docs/impact/`: anything touching rules.ts,
   projects.ts, parcels.ts, rank.ts, overrides.csv, or a migration that changes counts. `npm run etl -- --dry-run
   --cache` (the "after": the working tree), then `npm run impact -- --before-commit HEAD --note "..."` (the
@@ -52,11 +61,11 @@ and METHODOLOGY.md in sync when a rule changes.
 ## Commands
 
 ```
-npm test                              # rules + projects + parcels + flags + rank tests
+npm test                              # rules + projects + parcels + flags + golden + drift + rank tests
 npm run classify-sample -- --type "PERMIT - NEW CONSTRUCTION" --since 2025-10-01
 npm run etl -- --dry-run [--cache] [--since YYYY-MM-DD] [--no-parcels]
 npm run load-denominator -- --dry-run [--cache]
-npm run migrate -- 003_flags_and_parcel_cache.sql
+npm run migrate -- 004_etl_runs_commit.sql
 npm run impact -- --before-commit HEAD --note "what changed"   # or --before db|file.json, --after file.json
 npm run sync-wards && npm run load-denominator && npm run etl
 npm run dev | build | lint

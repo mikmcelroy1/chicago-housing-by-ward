@@ -38,7 +38,7 @@ npm test
 
 1. Create a Supabase project. In the dashboard click **Connect**, pick the **Session pooler** URI (not Direct connection: that host is IPv6-only and GitHub Actions runners have no IPv6), fill in the database password, and put it in `.env.local` as `DATABASE_URL`. Then apply every file in `supabase/migrations/` in order: `npm run migrate -- 001_schema.sql`, and so on.
 2. `npm run sync-wards`, `npm run load-denominator`, `npm run etl`.
-3. Add repository secrets `DATABASE_URL`, `SOCRATA_APP_TOKEN` (optional), `VERCEL_DEPLOY_HOOK` (optional). `.github/workflows/nightly-etl.yml` then runs every night at 06:00 UTC and uploads the review queue as an artifact.
+3. Add repository secrets `DATABASE_URL`, `SOCRATA_APP_TOKEN` (optional), `VERCEL_DEPLOY_HOOK` (optional). `.github/workflows/nightly-etl.yml` then runs every night at 06:00 UTC and uploads the review queue as an artifact. The run goes red when a golden-list permit disagrees or when a project's units changed with the same permits and the same code (the drift alarm); the data still loads, the red run is the signal.
 4. Deploy to Vercel with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_REPO_URL`.
 
 ## Changing a rule
@@ -57,6 +57,7 @@ npm run etl                                                   # then load it
 
 - `data/alder_tenure.csv`: who held each seat when. Add a row when a seat changes hands (appointment or election) with a source URL. The nightly run reloads it.
 - `data/ward_flags.csv`: good-behavior flags shown on the table, one row per ward per flag (for example `adu_opt_in,yes`).
+- `data/golden.csv`: permits a person has checked, with the agreed answer. The test suite checks what the rules read from each one, and every nightly run checks its final number; a mismatch turns the run red. When you spot-check a building, add its permits here.
 - `data/overrides.csv`: corrections for permits the rules misread. The nightly run's `review-queue.csv` artifact lists candidates; add a row with the permit id, the right category and units, and a note.
 
 ## Data sources

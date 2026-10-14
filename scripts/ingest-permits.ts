@@ -9,8 +9,10 @@
  *   npm run etl -- --since 2025-10-01 narrower window (dev)
  *
  * Fails loudly (exit 2) when the pull looks wrong (too few rows, no recent permits) so a cron run goes red
- * instead of silently loading a partial window.
+ * instead of silently loading a partial window. A live run also goes red, after loading, when a golden-list permit
+ * (data/golden.csv) disagrees or when a project drifted with the same permits and the same code (data/drift.csv).
  */
+import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";
@@ -32,6 +34,8 @@ import {
   type ParcelCache,
   type Queryable,
 } from "./lib/parcels";
+import { findDrift, type DriftRow, type PreviousProject } from "./lib/drift";
+import { checkGoldenRun, loadGolden, type GoldenMismatch } from "./lib/golden";
 import { buildProjects, type ClassifiedPermit } from "./lib/projects";
 import type { AlderTenure, Override, ParcelLookup, Permit, Project, Snapshot, WardFlag, WardRow } from "./lib/types";
 
@@ -52,6 +56,14 @@ const DRY = flags.has("--dry-run");
 const USE_CACHE = flags.has("--cache");
 const NO_PARCELS = flags.has("--no-parcels");
 const SINCE = argVal("--since") ?? WINDOW_START;
+/** The code that ran, for the drift alarm: GitHub sets GITHUB_SHA; locally, ask git. */
+const COMMIT: string | null = process.env.GITHUB_SHA ?? (() => {
+  try {
+    return execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
+  } catch {
+    return null;
+  }
+})();
 
 interface RawPermit {
   id: string; permit_: string; permit_type: string; review_type?: string; issue_date: string; permit_status?: string;
@@ -222,8 +234,25 @@ function writeReviewQueue(items: ClassifiedPermit[]): number {
   return rows.length;
 }
 
-async function loadDatabase(client: Client, permits: Permit[], raw: Map<string, RawPermit>, items: ClassifiedPermit[], projects: Project[], tenures: AlderTenure[], wardFlags: WardFlag[], resolvedPins: Map<string, string[]>, counts: Record<string, number>): Promise<void> {
-  const run = await client.query("insert into etl_runs default values returning id");
+/** Last run's projects and commit, read before they are replaced, for the drift alarm. */
+async function previousRun(client: Client): Promise<{ commit: string | null; projects: PreviousProject[] }> {
+  const run = (await client.query("select commit from etl_runs where status = 'ok' order by id desc limit 1")).rows[0] as { commit: string | null } | undefined;
+  const rows = (await client.query(
+    `select p.id, p.kind, p.units_delta, p.replaced_units, p.address, p.ward,
+            coalesce((select array_agg(pp.permit_id order by pp.permit_id) from project_permits pp where pp.project_id = p.id), '{}') as permit_ids
+     from projects p`,
+  )).rows as PreviousProject[];
+  return { commit: run?.commit ?? null, projects: rows };
+}
+
+async function loadDatabase(client: Client, permits: Permit[], raw: Map<string, RawPermit>, items: ClassifiedPermit[], projects: Project[], tenures: AlderTenure[], wardFlags: WardFlag[], resolvedPins: Map<string, string[]>, counts: Record<string, number>): Promise<{ drift: DriftRow[]; codeChanged: boolean }> {
+  // Drift: same project, same permits, different units or kind. With the same code that is data moving, not us.
+  const previous = await previousRun(client);
+  const drift = findDrift(previous.projects, projects);
+  const codeChanged = previous.commit === null || COMMIT === null || previous.commit !== COMMIT;
+  counts.drift = drift.length;
+  counts.drift_code_changed = codeChanged ? 1 : 0;
+  const run = await client.query("insert into etl_runs (commit) values ($1) returning id", [COMMIT]);
   const runId = run.rows[0].id as number;
   try {
     await client.query("begin");
@@ -310,6 +339,40 @@ async function loadDatabase(client: Client, permits: Permit[], raw: Map<string, 
     const res = await fetch(process.env.VERCEL_DEPLOY_HOOK, { method: "POST" });
     console.log(`deploy hook: ${res.status}`);
   }
+  return { drift, codeChanged };
+}
+
+/** Golden-list check: the final numbers for every permit we have checked by hand. Mismatches go to data/golden-mismatches.csv. */
+function checkGolden(items: ClassifiedPermit[], projects: Project[], counts: Record<string, number>): GoldenMismatch[] {
+  const golden = loadGolden(join(DATA, "golden.csv"));
+  const mismatches = checkGoldenRun(golden.filter((r) => r.status === "pass"), items, projects);
+  const promoted = golden.filter((r) => r.status === "known_gap" && checkGoldenRun([r], items, projects).length === 0);
+  counts.golden_rows = golden.length;
+  counts.golden_mismatches = mismatches.length;
+  const file = join(DATA, "golden-mismatches.csv");
+  if (mismatches.length) {
+    writeFileSync(file, toCsv(["permit_id", "permit_no", "address", "field", "expected", "actual", "note"], mismatches.map((m) => [m.permit_id, m.permit_no, m.address, m.field, m.expected, m.actual, m.note])));
+    console.error(`!!! golden list: ${mismatches.length} mismatch${mismatches.length === 1 ? "" : "es"} (data/golden-mismatches.csv)`);
+    for (const m of mismatches) console.error(`    ${m.permit_no} ${m.address}: ${m.field} expected ${m.expected}, got ${m.actual}`);
+  } else {
+    if (existsSync(file)) writeFileSync(file, "");
+    console.log(`golden list: ${golden.length} permits agree`);
+  }
+  for (const r of promoted) console.log(`golden list: known gap now passes, mark it pass: ${r.permit_no} ${r.address}`);
+  return mismatches;
+}
+
+function writeDrift(drift: DriftRow[], codeChanged: boolean): void {
+  const file = join(DATA, "drift.csv");
+  if (!drift.length) {
+    if (existsSync(file)) writeFileSync(file, "");
+    console.log("drift: none");
+    return;
+  }
+  writeFileSync(file, toCsv(["project_id", "ward", "address", "kind_before", "kind_after", "units_before", "units_after"], drift.map((d) => [d.id, d.ward, d.address, d.kind_before, d.kind_after, d.units_before, d.units_after])));
+  const why = codeChanged ? "the code changed since the last run, see the impact report" : "SAME CODE: the county's or the city's data moved, look at these";
+  console[codeChanged ? "log" : "error"](`${codeChanged ? "" : "!!! "}drift: ${drift.length} project${drift.length === 1 ? "" : "s"} changed units or kind with the same permits (${why}; data/drift.csv)`);
+  for (const d of drift.slice(0, 20)) console[codeChanged ? "log" : "error"](`    ward ${d.ward} ${d.address}: ${d.kind_before} ${d.units_before} -> ${d.kind_after} ${d.units_after}`);
 }
 
 function writeSnapshot(permits: Permit[], projects: Project[], tenures: AlderTenure[], wardFlags: WardFlag[], counts: Record<string, number>): void {
@@ -381,11 +444,22 @@ async function main() {
   counts.emergency_units = -projects.filter((p) => p.kind === "emergency_demolition").reduce((s, p) => s + p.units_delta, 0);
   counts.ward_geom_mismatch = projects.filter((p) => p.ward_geom_mismatch).length;
   counts.needs_review = writeReviewQueue(items);
+  const goldenMismatches = checkGolden(items, projects, counts);
   console.log(counts);
 
+  let alarm: string[] = goldenMismatches.length ? [`${goldenMismatches.length} golden-list mismatch${goldenMismatches.length === 1 ? "" : "es"}`] : [];
   if (DRY) writeSnapshot(permits, projects, tenures, wardFlags, counts);
-  else await withDb((db) => loadDatabase(db, permits, raw, items, projects, tenures, wardFlags, resolvedPins, counts));
+  else {
+    const { drift, codeChanged } = await withDb((db) => loadDatabase(db, permits, raw, items, projects, tenures, wardFlags, resolvedPins, counts));
+    writeDrift(drift, codeChanged);
+    if (drift.length && !codeChanged) alarm = [...alarm, `${drift.length} project${drift.length === 1 ? "" : "s"} drifted with the same code`];
+  }
   console.log(`done in ${Math.round((Date.now() - t0) / 1000)}s`);
+  // The data is loaded either way; the red run is the alarm.
+  if (alarm.length && !DRY) {
+    console.error(`!!! ${alarm.join("; ")}`);
+    process.exit(2);
+  }
 }
 
 main().catch((err) => {

@@ -45,3 +45,5 @@ next-env.d.ts
 /data/cache/
 /data/fixtures/
 /data/review-queue.csv
+/data/golden-mismatches.csv
+/data/drift.csv
