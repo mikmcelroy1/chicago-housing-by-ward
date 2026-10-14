@@ -38,6 +38,7 @@ export type FlagKey =
   | "needs_review"
   | "replaces"
   | "multi_permit"
+  | "phase_only"
   | "assessor_units"
   | "summed_parcels"
   | "no_parcel"

@@ -12,6 +12,7 @@ const WORDS = Object.keys(WORD_NUM).join("|");
 /** Upper-case, collapse whitespace, turn "TWO (2)" and "(2)" into plain digits, word-numbers before unit words into digits. */
 export function normalize(desc: string): string {
   let d = (desc || "").toUpperCase().replace(/\s+/g, " ").trim();
+  d = d.replace(/\(\s*D\.?\s?U\.?S?\.?\s*\)/g, " "); // "2 DWELLING UNITS (D.U.) TO 4 D.U." reads as 2 units to 4
   d = d.replace(new RegExp(`\\b(${WORDS})\\s*\\((\\d+)\\)`, "g"), "$2");
   d = d.replace(/\((\d{1,4})\)/g, " $1 ");
   d = d.replace(/(\w)-\s+(?=(?:DWELLING |RESIDENTIAL )?(?:UNITS?|D\.?U\.?|FLATS?)\b)/g, "$1-");

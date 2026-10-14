@@ -80,6 +80,14 @@ const newConstructionKeys = (permit: Permit): string[] =>
 const demolitionKeys = (permit: Permit): string[] =>
   [...permit.pins.map((p) => `pin:${p}`), permit.address ? `addr:${normalizedAddress(permit.address)}` : null].filter(Boolean) as string[];
 
+/** Kind of a counted renovation: adds are conversions (or ADUs), removals are deconversions. */
+function renovationKind(cls: Classification): ProjectKind {
+  const u = cls.units;
+  if (u === null) return cls.notes.some((n) => n.includes("deconversion")) ? "deconversion" : "conversion";
+  if (u > 0) return cls.notes.some((n) => n === "adu" || n === "legalize") ? "adu" : "conversion";
+  return "deconversion";
+}
+
 export function tenureFor(tenures: AlderTenure[], ward: number, date: string): AlderTenure | null {
   const hits = tenures.filter((t) => t.ward === ward && t.start_date <= date && (!t.end_date || date <= t.end_date));
   hits.sort((a, b) => b.start_date.localeCompare(a.start_date));
@@ -171,37 +179,50 @@ export function buildProjects(items: ClassifiedPermit[], opts: BuildOptions): Pr
     return { ward, mismatch: permit.ward !== null && geo !== null && geo !== permit.ward };
   };
 
-  // New construction
+  // New construction. Renovation permits ride along in the grouping: a project whose only permits are phases
+  // (caissons, foundation) may get its full permit as a renovation permit, when an existing building is converted
+  // and extended. That permit joins the project and sets its count instead of counting twice.
   const nc = items.filter(({ permit, cls }) => permit.permit_type.toUpperCase().includes("NEW CONSTRUCTION") && (cls.category === "new_residential" || cls.category === "revision_or_phase"));
-  for (const cluster of groupByKeys(nc, newConstructionKeys, CLUSTER_DAYS)) {
-    const counting = cluster.filter((it) => it.cls.category === "new_residential" && it.cls.units !== null);
-    const nonRevision = cluster.filter((it) => it.cls.category !== "revision_or_phase");
+  const renovationDeltas = items.filter(({ cls }) => cls.category === "renovation_delta");
+  const absorbed = new Set<string>();
+  for (const group of groupByKeys([...nc, ...renovationDeltas], newConstructionKeys, CLUSTER_DAYS)) {
+    const ncPermits = group.filter((it) => it.cls.category !== "renovation_delta");
+    if (ncPermits.length === 0) continue; // renovations on their own are one project each, below
+    const renovations = group.filter((it) => it.cls.category === "renovation_delta");
+    const counting = ncPermits.filter((it) => it.cls.category === "new_residential" && it.cls.units !== null);
+    const nonRevision = ncPermits.filter((it) => it.cls.category !== "revision_or_phase");
     const chosen = counting.at(-1) ?? null;
-    let units: number | null = chosen?.cls.units ?? null;
-    if (units === null) {
-      const parsed = cluster.map((it) => it.cls.units).filter((u): u is number => u !== null);
+    const fullRenovation = nonRevision.length === 0 ? (renovations.filter((it) => it.cls.units !== null).at(-1) ?? null) : null;
+    const cluster = fullRenovation ? [...ncPermits, ...renovations] : ncPermits;
+    if (fullRenovation) for (const it of renovations) absorbed.add(it.permit.id);
+    let units: number | null = fullRenovation ? fullRenovation.cls.units : (chosen?.cls.units ?? null);
+    let phaseOnly = false;
+    if (units === null && !fullRenovation) {
+      const parsed = ncPermits.map((it) => it.cls.units).filter((u): u is number => u !== null);
       units = parsed.length ? Math.max(...parsed) : null;
+      phaseOnly = nonRevision.length === 0 && units !== null;
     }
     if (chosen) {
-      for (const it of cluster) {
+      for (const it of ncPermits) {
         if (it.cls.category !== "revision_or_phase" || it.permit.issue_date <= chosen.permit.issue_date) continue;
         const delta = fromToDelta(normalize(it.permit.description));
         if (delta !== null && units !== null) units += delta;
       }
     }
-    const anchor = nonRevision[0] ?? cluster[0];
-    const primary = chosen ?? anchor;
+    const anchor = nonRevision[0] ?? fullRenovation ?? ncPermits[0];
+    const primary = chosen ?? fullRenovation ?? anchor;
     const { ward, mismatch } = wardOf(primary.permit);
     if (ward === null) {
       if (opts.unplaced) opts.unplaced.count += 1;
       continue;
     }
     const review = cluster.some((it) => it.cls.needs_review) || units === null;
-    const kind: ProjectKind = chosen?.cls.notes.some((n) => n.startsWith("adu")) ? "adu" : "new_construction";
+    const kind: ProjectKind = fullRenovation ? renovationKind(fullRenovation.cls) : chosen?.cls.notes.some((n) => n.startsWith("adu")) ? "adu" : "new_construction";
     const key = primary.permit.pins[0] ? `pin:${primary.permit.pins[0]}` : `addr:${normalizedAddress(primary.permit.address)}`;
     const flags: FlagKey[] = [];
     if (cluster.length > 1) flags.push("multi_permit");
-    if (chosen?.cls.units_source === "override") flags.push("overridden");
+    if (phaseOnly) flags.push("phase_only");
+    if ((chosen ?? fullRenovation)?.cls.units_source === "override") flags.push("overridden");
     projects.push(
       finish({
         id: `nc:${key}:${anchor.permit.issue_date}`,
@@ -209,7 +230,7 @@ export function buildProjects(items: ClassifiedPermit[], opts: BuildOptions): Pr
         kind,
         ward,
         units_delta: units ?? 0,
-        counted: units !== null && units > 0,
+        counted: units !== null && (fullRenovation ? units !== 0 : units > 0),
         first_issue_date: anchor.permit.issue_date,
         primary_permit_id: primary.permit.id,
         permit_no: primary.permit.permit_no,
@@ -228,16 +249,16 @@ export function buildProjects(items: ClassifiedPermit[], opts: BuildOptions): Pr
     );
   }
 
-  // Renovation deltas: one project per permit
+  // Renovation deltas: one project per permit, unless the permit was a phased project's full permit above
   for (const { permit, cls } of items) {
-    if (cls.category !== "renovation_delta") continue;
+    if (cls.category !== "renovation_delta" || absorbed.has(permit.id)) continue;
     const { ward, mismatch } = wardOf(permit);
     if (ward === null) {
       if (opts.unplaced) opts.unplaced.count += 1;
       continue;
     }
     const u = cls.units;
-    const kind: ProjectKind = u === null ? (cls.notes.some((n) => n.includes("deconversion")) ? "deconversion" : "conversion") : u > 0 ? (cls.notes.some((n) => n === "adu" || n === "legalize") ? "adu" : "conversion") : "deconversion";
+    const kind = renovationKind(cls);
     projects.push(
       finish({
         id: `ren:${permit.id}`,

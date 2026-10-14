@@ -130,3 +130,10 @@ test("partial demolitions and outbuildings count zero and never reach the assess
   assert.equal(stated.category, "demolition");
   assert.equal(stated.units, 2, "a count the city states wins over partial wording");
 });
+
+test("a parenthetical (D.U.) after the unit word no longer hides a from-to conversion", () => {
+  const r = c(REN, "CONVERT 2 DWELLING UNITS (D.U.) TO 4 D.U. ADD NEW D.U. IN BASEMENT, ERECT NEW REAR 2 STORY GARAGE");
+  assert.equal(r.category, "renovation_delta");
+  assert.equal(r.units, 2);
+  assert.ok(r.notes.includes("from-to"));
+});

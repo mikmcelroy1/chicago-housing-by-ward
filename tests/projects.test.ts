@@ -230,3 +230,44 @@ test("a large assessor count is held: shown, flagged, not counted until a correc
   const emergency = assessorDemo({ issue_date: "2026-03-01", address: "108 W BIG ST" }, [{ pin: "P3", units: 9, cls: "313" }], { category: "emergency_demolition" });
   assert.deepEqual(build([emergency])[0].flags, ["emergency", "assessor_units"], "emergency demolitions are never counted anyway, so not held");
 });
+
+test("2938 W Fullerton: a foundation-only permit and the conversion permit for the same 62 units are one project", () => {
+  const foundation = { permit: permit({ permit_type: NC, issue_date: "2025-12-17", address: "2938 W FULLERTON AVE", pins: ["1325326007"], description: "FOUNDATION ONLY FOR 5-STORY BUILDING ADDITION TO CONVERT EXISTING 5-STORY BUILDING TO RESIDENTIAL (62 DWELLING UNITS)" }), cls: cls({ category: "revision_or_phase", units: 62, notes: ["revision or phase"] }) };
+  const conversion = { permit: permit({ permit_type: "PERMIT - RENOVATION/ALTERATION", issue_date: "2026-03-23", address: "2938 W FULLERTON AVE", pins: ["1325326007"], description: "RENOVATION OF AN EXISTING 5-STORY STORAGE BUILDING TO CONVERT TO RESIDENTIAL (62 DWELLING UNITS)" }), cls: cls({ category: "renovation_delta", units: 62, notes: ["non-residential conversion"] }) };
+  const out = build([foundation, conversion]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].units_delta, 62);
+  assert.equal(out[0].kind, "conversion");
+  assert.equal(out[0].primary_permit_id, conversion.permit.id);
+  assert.equal(out[0].first_issue_date, "2026-03-23", "dated at the full permit");
+  assert.deepEqual(out[0].permit_ids, [foundation.permit.id, conversion.permit.id]);
+  assert.deepEqual(out[0].flags, ["multi_permit"]);
+});
+
+test("6212 N Winthrop: a phase permit parsed as the building total, then the real permit for a 3-unit addition", () => {
+  const phase = { permit: permit({ permit_type: NC, issue_date: "2024-07-12", address: "6212 N WINTHROP AVE", description: "FOUNDATIONS ONLY PERMIT FOR A REAR 4 STORY, 3 DWELLING UNIT ADDITION. BUILDING WILL HAVE 11 UNITS" }), cls: cls({ category: "revision_or_phase", units: 11, notes: ["revision or phase"] }) };
+  const addition = { permit: permit({ permit_type: "PERMIT - RENOVATION/ALTERATION", issue_date: "2024-09-13", address: "6212 N WINTHROP AVE", description: "CONSTRUCT A REAR 4 STORY, 3 DWELLING UNIT ADDITION, CONVERT FROM 8 TO 11 UNITS" }), cls: cls({ category: "renovation_delta", units: 3, notes: ["from-to"] }) };
+  const [p] = build([phase, addition]);
+  assert.equal(p.units_delta, 3);
+  assert.equal(p.counted, true);
+});
+
+test("a full new-construction permit keeps a renovation at the same address as its own project", () => {
+  const house = { permit: permit({ permit_type: NC, issue_date: "2026-10-05", address: "6141 S GREENWOOD AVE", description: "PROPOSED 3 STORY FRAME 3 D.U. RESIDENTIAL BUILDING" }), cls: cls({ category: "new_residential", units: 3 }) };
+  const front = { permit: permit({ permit_type: "PERMIT - RENOVATION/ALTERATION", issue_date: "2025-09-18", address: "6141 S GREENWOOD AVE", description: "FRONT BUILDING: CONVERT 3 D.U. TO 4 D.U." }), cls: cls({ category: "renovation_delta", units: 1, notes: ["from-to"] }) };
+  const out = build([house, front]);
+  assert.equal(out.length, 2);
+  assert.deepEqual(out.map((p) => p.units_delta).sort(), [1, 3]);
+});
+
+test("a project counted from a phase permit alone carries the phase flag until the full permit arrives", () => {
+  const caissons = { permit: permit({ permit_type: NC, issue_date: "2025-06-26", address: "410 N ELIZABETH ST", description: "CAISSONS ONLY PERMIT FOR A 33-STORY BUILDING WITH 384 DWELLING UNITS" }), cls: cls({ category: "revision_or_phase", units: 384, notes: ["revision or phase"] }) };
+  const [p] = build([caissons]);
+  assert.equal(p.units_delta, 384);
+  assert.equal(p.counted, true);
+  assert.deepEqual(p.flags, ["phase_only"]);
+  const full = { permit: permit({ permit_type: NC, issue_date: "2025-09-01", address: "410 N ELIZABETH ST", description: "FULL BUILDING PERMIT FOR A 33-STORY BUILDING WITH 380 DWELLING UNITS" }), cls: cls({ category: "new_residential", units: 380 }) };
+  const [q] = build([caissons, full]);
+  assert.equal(q.units_delta, 380);
+  assert.deepEqual(q.flags, ["multi_permit"], "the flag clears once a full permit sets the count");
+});

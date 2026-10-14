@@ -42,7 +42,7 @@ The city's permit data has no unit-count field. The count is read from the permi
 1. Permits for tents, stages, cranes, scaffolding, EV chargers, antennas and other temporary or non-building work are dropped. The city files festival tents under "new construction"; they are about a quarter of that category.
 2. Garages, sheds, fences, decks and porches with no dwelling are dropped.
 3. The unit count is the number before the words UNIT, DWELLING UNIT, D.U. or FLAT. A stated total ("134 TOTAL UNITS") wins. "SINGLE FAMILY RESIDENCE" counts as one unit. A coach house or ADU counts as one.
-4. Large projects produce several permits: caissons, foundation, superstructure, a full permit, and revisions. All permits at the same parcel or address within 36 months are grouped into one project. The project's units come from the latest full permit that states a count. A revision that states a reduction adjusts the count.
+4. Large projects produce several permits: caissons, foundation, superstructure, a full permit, and revisions. All permits at the same parcel or address within 36 months are grouped into one project. The project's units come from the latest full permit that states a count. A revision that states a reduction adjusts the count. A project whose only permits so far are phases, such as caissons or foundations, counts from them and carries a phase-permit flag until the full permit arrives. When that full permit is issued as a renovation permit, as happens when an existing building is converted and extended, it joins the project and sets the count instead of counting a second time.
 5. A permit with a residential keyword but no readable unit count goes to a manual review queue and does not count until a person has read it.
 
 ### Replacements
@@ -116,6 +116,10 @@ A building demolished at this address within two years of this permit. Its units
 ### Multiple permits
 
 Several permits at this address or parcel were combined into one project, so nothing is counted twice.
+
+### Phase permit
+
+Counted from a caissons or foundation permit. No full building permit has been issued at this parcel or address yet, so the count is read from the phase permit's description.
 
 ### Assessor count
 

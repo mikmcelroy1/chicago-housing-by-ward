@@ -13,6 +13,7 @@ export type FlagIcon =
   | "circle-help"
   | "refresh-cw"
   | "layers"
+  | "hard-hat"
   | "landmark"
   | "layout-grid"
   | "circle-dashed"
@@ -99,6 +100,15 @@ export const FLAGS: readonly FlagDef[] = [
     anchor: "multiple-permits",
     icon: "layers",
     tone: "neutral",
+  },
+  {
+    key: "phase_only",
+    label: "Phase permit",
+    description:
+      "Counted from a caissons or foundation permit. No full building permit has been issued at this parcel or address yet, so the count is read from the phase permit's description.",
+    anchor: "phase-permit",
+    icon: "hard-hat",
+    tone: "warn",
   },
   {
     key: "assessor_units",
