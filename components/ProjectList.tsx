@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Project } from "@/scripts/lib/types";
 import { formatCurrency, formatDate, KIND_LABELS } from "@/lib/format";
 import { SignedUnits } from "./SignedNumber";
@@ -10,7 +11,7 @@ const badge = "rounded border px-1.5 py-0.5 text-xs";
 const neutralBadge = `${badge} border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300`;
 const warnBadge = `${badge} border-amber-500/60 text-amber-800 dark:border-amber-400/60 dark:text-amber-300`;
 
-function ProjectRow({ project: p }: { project: Project }) {
+function ProjectRow({ project: p, showWard }: { project: Project; showWard: boolean }) {
   const emergency = p.kind === "emergency_demolition";
   return (
     <li className="border-b border-zinc-200 py-3 dark:border-zinc-800">
@@ -19,6 +20,11 @@ function ProjectRow({ project: p }: { project: Project }) {
           {formatDate(p.first_issue_date)}
         </time>
         <span className="font-medium">{p.address}</span>
+        {showWard ? (
+          <Link href={`/ward/${p.ward}`} className="text-sm text-zinc-500 underline underline-offset-2 dark:text-zinc-400">
+            Ward {p.ward}
+          </Link>
+        ) : null}
         <span className={`text-sm ${emergency ? "text-amber-700 dark:text-amber-400" : "text-zinc-600 dark:text-zinc-400"}`}>
           {KIND_LABELS[p.kind]}
           {p.replaced_units > 0 ? ` · replaces ${p.replaced_units} ${p.replaced_units === 1 ? "unit" : "units"}` : ""}
@@ -59,14 +65,14 @@ function ProjectRow({ project: p }: { project: Project }) {
   );
 }
 
-export function ProjectList({ projects }: { projects: Project[] }) {
+export function ProjectList({ projects, showWard = false }: { projects: Project[]; showWard?: boolean }) {
   if (projects.length === 0) {
     return <p className="py-6 text-sm text-zinc-500 dark:text-zinc-400">No projects match in this window.</p>;
   }
   return (
     <ul className="border-t border-zinc-200 dark:border-zinc-800">
       {projects.map((p) => (
-        <ProjectRow key={p.id} project={p} />
+        <ProjectRow key={p.id} project={p} showWard={showWard} />
       ))}
     </ul>
   );

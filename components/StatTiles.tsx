@@ -6,7 +6,7 @@ const tile = "rounded-md border border-zinc-200 px-3 py-2.5 dark:border-zinc-800
 const label = "text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
 const value = "mt-1 text-2xl font-semibold tabular-nums";
 
-export function StatTiles({ stats }: { stats: WardStats }) {
+export function StatTiles({ stats }: { stats: Pick<WardStats, "gross" | "lost" | "net" | "emergency_units" | "projects" | "rate" | "lowSample"> }) {
   return (
     <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
       <div className={tile}>
