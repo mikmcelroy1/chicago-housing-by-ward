@@ -192,3 +192,33 @@ export function wardsChangedHands(snapshot: Snapshot, window: DateWindow): numbe
   for (const c of count.values()) if (c >= 2) n += 1;
   return n;
 }
+
+export interface CityTotals {
+  gross: number;
+  lost: number;
+  net: number;
+  emergency_units: number;
+  projects: number;
+  /** net / sum of every ward's units_2020 x 1000, or null when no ward has a denominator. */
+  rate: number | null;
+  wardsWithDenominator: number;
+}
+
+/** Citywide totals over a set of ward stats, for the "Chicago" row above the ranking. */
+export function cityTotals(stats: readonly WardStats[], wards: readonly { ward: number; units_2020: number | null }[]): CityTotals {
+  let gross = 0, lost = 0, emergency_units = 0, projects = 0, units = 0, withDenominator = 0;
+  const denominator = new Map(wards.map((w) => [w.ward, w.units_2020]));
+  for (const s of stats) {
+    gross += s.gross;
+    lost += s.lost;
+    emergency_units += s.emergency_units;
+    projects += s.projects;
+    const u = denominator.get(s.ward);
+    if (u !== null && u !== undefined && u > 0) {
+      units += u;
+      withDenominator += 1;
+    }
+  }
+  const net = gross - lost;
+  return { gross, lost, net, emergency_units, projects, rate: units > 0 ? (net / units) * 1000 : null, wardsWithDenominator: withDenominator };
+}

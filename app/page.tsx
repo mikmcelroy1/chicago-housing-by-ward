@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { CityBand } from "@/components/CityBand";
 import { RankingCards } from "@/components/RankingCards";
 import { MobileSort } from "@/components/MobileSort";
 import { RankingTable, type RankingRow } from "@/components/RankingTable";
@@ -7,7 +8,7 @@ import { WindowControls } from "@/components/WindowControls";
 import { getSnapshot } from "@/lib/data";
 import { todayInChicago } from "@/lib/dates";
 import { parseQuery, type SearchParams } from "@/lib/query";
-import { rankWithChange, tenureSplit, wardsChangedHands } from "@/lib/rank";
+import { cityTotals, rankWithChange, tenureSplit, wardsChangedHands } from "@/lib/rank";
 
 export default function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
@@ -39,6 +40,7 @@ async function Rankings({ searchParams }: { searchParams: Promise<SearchParams> 
     flags: snapshot.flags.filter((f) => f.ward === r.ward),
   }));
   const changedHands = wardsChangedHands(snapshot, window);
+  const totals = cityTotals(ranked, snapshot.wards);
 
   return (
     <div className="mt-6 flex flex-col gap-5">
@@ -49,6 +51,7 @@ async function Rankings({ searchParams }: { searchParams: Promise<SearchParams> 
           the units permitted during their tenure.
         </p>
       ) : null}
+      <CityBand totals={totals} state={state} />
       <div className="hidden sm:block">
         <RankingTable rows={rows} state={state} showFlags={snapshot.flags.length > 0} />
       </div>

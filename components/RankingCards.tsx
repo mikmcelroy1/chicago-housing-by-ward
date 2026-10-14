@@ -16,7 +16,7 @@ export const SORT_LABELS: Record<SortKey, string> = {
   projects: "projects",
 };
 
-function metric(row: RankingRow, key: SortKey): ReactNode {
+function metric(row: Pick<RankingRow, "rate" | "net" | "gross" | "lost" | "projects">, key: SortKey): ReactNode {
   switch (key) {
     case "rate":
       return <Rate value={row.rate} />;
@@ -32,7 +32,7 @@ function metric(row: RankingRow, key: SortKey): ReactNode {
 }
 
 /** The other four metrics in one quiet line under the card. */
-function Others({ row, except }: { row: RankingRow; except: SortKey }) {
+function Others({ row, except }: { row: Pick<RankingRow, "rate" | "net" | "gross" | "lost" | "projects" | "lowSample">; except: SortKey }) {
   const parts: ReactNode[] = [];
   for (const col of COLUMNS) {
     if (col.key === except) continue;

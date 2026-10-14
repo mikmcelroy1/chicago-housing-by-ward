@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { AlderTenure, Project, ProjectKind, Snapshot, WardRow } from "../scripts/lib/types";
 import {
+  cityTotals,
   computeWardStats,
   priorWindow,
   projectsInWindow,
@@ -287,4 +288,24 @@ test("rankWards: any column sorts descending with rank 1 the highest, nulls last
   assert.deepEqual(rankWards(computeWardStats(snap, W), "lost").map((r) => r.ward), [1, 2, 3]);
   assert.deepEqual(rankWards(computeWardStats(snap, W), "projects").map((r) => r.ward), [1, 2, 3]);
   assert.deepEqual(rankWards(computeWardStats(snap, W), "gross").map((r) => r.ward), [1, 2, 3]);
+});
+
+test("cityTotals: sums the wards and rates against the summed housing stock", () => {
+  const snap = snapshot({
+    wards: [ward(1, 1000), ward(2, 3000), ward(3, null)],
+    projects: [
+      project({ ward: 1, kind: "new_construction", units_delta: 10 }),
+      project({ ward: 2, kind: "demolition", units_delta: -2 }),
+      project({ ward: 3, kind: "new_construction", units_delta: 4 }),
+      project({ ward: 1, kind: "emergency_demolition", units_delta: -5 }),
+    ],
+  });
+  const t = cityTotals(computeWardStats(snap, W), snap.wards);
+  assert.equal(t.gross, 14);
+  assert.equal(t.lost, 2);
+  assert.equal(t.net, 12);
+  assert.equal(t.emergency_units, 5);
+  assert.equal(t.projects, 3);
+  assert.equal(t.wardsWithDenominator, 2);
+  assert.equal(t.rate, 3);
 });
