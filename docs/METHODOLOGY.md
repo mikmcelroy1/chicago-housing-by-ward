@@ -152,6 +152,7 @@ The permit's coordinates fall in a different ward from the one the city recorded
 ## Known limitations
 
 - Permitted is not built. Some permits expire unbuilt.
+- The rules are stricter with losses than with gains. A demolition must name a dwelling, survive the assessor checks and, at seven units or more, a review before it counts; a new building counts on the day its permit is issued, from the largest unit count in its description. The net figure leans optimistic by that difference.
 - Unit parsing takes the largest number in a description, so a two-unit building with a one-unit coach house in the same permit counts two until reviewed.
 - A demolition whose rebuild permit has not been issued yet counts as a loss until it is; once the rebuild appears, the loss moves to the rebuild's date. Rankings for recent windows can therefore shift a little as rebuild permits arrive.
 - Assessor records lag about a year, so a parcel demolished and rebuilt inside a year can read as its old use.

@@ -41,6 +41,18 @@ npm test
 3. Add repository secrets `DATABASE_URL`, `SOCRATA_APP_TOKEN` (optional), `VERCEL_DEPLOY_HOOK` (optional). `.github/workflows/nightly-etl.yml` then runs every night at 06:00 UTC and uploads the review queue as an artifact.
 4. Deploy to Vercel with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_REPO_URL`.
 
+## Changing a rule
+
+Any change that can move a number (the rules, the project builder, the parcel lookup, the rank math, the corrections file) ships with a before-and-after report in [docs/impact](docs/impact/): Chicago and every ward for the two default windows, plus every project whose number moved. Run it before the ETL loads the change, while the database still holds the old numbers:
+
+```bash
+npm run etl -- --dry-run --cache                              # the "after": your working tree on the cached permit pull
+npm run impact -- --before-commit HEAD --note "what changed"  # the "before": the last commit on the same pull; writes docs/impact/<date>-<slug>.xlsx and .md
+npm run etl                                                   # then load it
+```
+
+`--before db` compares against what the live site shows instead of the last commit.
+
 ## Maintaining the data files
 
 - `data/alder_tenure.csv`: who held each seat when. Add a row when a seat changes hands (appointment or election) with a source URL. The nightly run reloads it.

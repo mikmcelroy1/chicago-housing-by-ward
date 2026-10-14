@@ -12,7 +12,8 @@
     "migrate": "tsx --env-file-if-exists=.env.local scripts/apply-migration.ts",
     "sync-wards": "tsx --env-file-if-exists=.env.local scripts/sync-wards.ts",
     "load-denominator": "tsx --env-file-if-exists=.env.local scripts/load-denominator.ts",
-    "classify-sample": "tsx scripts/dev/classify-sample.ts"
+    "classify-sample": "tsx scripts/dev/classify-sample.ts",
+    "impact": "tsx --env-file-if-exists=.env.local scripts/impact.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
@@ -33,6 +34,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
+    "exceljs": "^4.4.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"

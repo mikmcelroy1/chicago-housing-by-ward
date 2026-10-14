@@ -42,6 +42,12 @@ and METHODOLOGY.md in sync when a rule changes.
   `scripts/lib/flags.ts`, and a `### <label>` heading with the same one-sentence description under `## Flags`
   in docs/METHODOLOGY.md. `tests/flags.test.ts` fails until all three agree. Flags the site can tell from the
   row have a `derive`; the rest are set in projects.ts and stored in `projects.flags`.
+- Every change that can move a number ships with an impact report in `docs/impact/`: anything touching rules.ts,
+  projects.ts, parcels.ts, rank.ts, overrides.csv, or a migration that changes counts. `npm run etl -- --dry-run
+  --cache` (the "after": the working tree), then `npm run impact -- --before-commit HEAD --note "..."` (the
+  "before": the last commit, dry-run on the same pull, so only the rules differ). Commit the .xlsx and .md with
+  the change. `--before db` compares against the live site instead, but a live `npm run etl` rewrites the cached
+  pull, so the two sides may then differ by a day of permits. Cosmetic changes don't need one.
 
 ## Commands
 
@@ -51,6 +57,7 @@ npm run classify-sample -- --type "PERMIT - NEW CONSTRUCTION" --since 2025-10-01
 npm run etl -- --dry-run [--cache] [--since YYYY-MM-DD] [--no-parcels]
 npm run load-denominator -- --dry-run [--cache]
 npm run migrate -- 003_flags_and_parcel_cache.sql
+npm run impact -- --before-commit HEAD --note "what changed"   # or --before db|file.json, --after file.json
 npm run sync-wards && npm run load-denominator && npm run etl
 npm run dev | build | lint
 ```
