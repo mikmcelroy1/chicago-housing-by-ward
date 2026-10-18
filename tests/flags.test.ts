@@ -17,7 +17,7 @@ function project(o: Partial<Project> = {}): Project {
     id: "p1", project_key: "k1", kind: "new_construction", ward: 1, units_delta: 3, counted: true, first_issue_date: "2026-06-01",
     primary_permit_id: "x", permit_no: "B1", permit_ids: ["x"], address: "1 W MAIN ST", lat: null, lon: null, alder_tenure_id: null,
     subsidized: false, replaced_units: 0, merged_into: null, status: "ACTIVE", description: "", reported_cost: null, review_type: null,
-    needs_review: false, ward_geom_mismatch: false, flags: [], ...o,
+    needs_review: false, ward_geom_mismatch: false, flags: [], action_matter_id: null, ...o,
   };
 }
 

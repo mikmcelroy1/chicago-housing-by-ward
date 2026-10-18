@@ -7,7 +7,7 @@ function project(o: Partial<Project> & { id: string; kind: Project["kind"]; unit
   return {
     project_key: "k", ward: 44, counted: true, first_issue_date: "2026-06-01", primary_permit_id: o.permit_ids[0], permit_no: "B1", address: "1 W MAIN ST",
     lat: null, lon: null, alder_tenure_id: null, subsidized: false, replaced_units: 0, merged_into: null, status: "ACTIVE", description: "", reported_cost: null,
-    review_type: null, needs_review: false, ward_geom_mismatch: false, flags: [], ...o,
+    review_type: null, needs_review: false, ward_geom_mismatch: false, flags: [], action_matter_id: null, ...o,
   };
 }
 const prev = (o: Partial<PreviousProject> & { id: string; kind: PreviousProject["kind"]; units_delta: number; permit_ids: string[] }): PreviousProject => ({ replaced_units: 0, address: "1 W MAIN ST", ward: 44, ...o });

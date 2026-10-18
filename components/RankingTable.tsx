@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { WardFlag, WardRow } from "@/scripts/lib/types";
 import { formatInt, formatSigned } from "@/lib/format";
-import { buildHref, nextSort, type QueryState } from "@/lib/query";
+import { buildHref, nextSort, type QueryState, type SortColumn } from "@/lib/query";
 import type { RankedWardWithChange, SortKey, TenureSplit } from "@/lib/rank";
 import { Avatar } from "./Avatar";
 import { FlagList } from "./FlagList";
@@ -14,18 +14,20 @@ export interface RankingRow extends RankedWardWithChange {
   flags: WardFlag[];
 }
 
-export const COLUMNS: { key: SortKey; label: string; info: string; anchor: string }[] = [
+export const COLUMNS: SortColumn<SortKey>[] = [
   {
     key: "rate",
     label: "Net / 1,000",
+    menuLabel: "Net / 1,000 units",
     info: "Net new units divided by the ward's existing housing units, times 1,000. The default sort, so wards with very different housing stock compare fairly.",
     anchor: "the-rank",
   },
-  { key: "net", label: "Net", info: "Gross units minus units lost in this period.", anchor: "the-rank" },
-  { key: "gross", label: "Gross", info: "Units added by new construction, ADUs and conversions in this period.", anchor: "what-is-counted" },
+  { key: "net", label: "Net", menuLabel: "Net units", info: "Gross units minus units lost in this period.", anchor: "the-rank" },
+  { key: "gross", label: "Gross", menuLabel: "Gross units", info: "Units added by new construction, ADUs and conversions in this period.", anchor: "what-is-counted" },
   {
     key: "lost",
     label: "Lost",
+    menuLabel: "Units lost",
     info: "Units removed by voluntary demolition and deconversion, including buildings torn down for a rebuild at the same address. Emergency demolitions are never counted.",
     anchor: "what-is-counted",
   },
@@ -88,12 +90,12 @@ function AlderCell({ row, href }: { row: RankingRow; href: string }) {
   );
 }
 
-const th = "px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
-const thNum = `${th} text-right`;
-const td = "px-2 py-2 align-middle";
-const tdNum = `${td} text-right tabular-nums`;
+export const th = "px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
+export const thNum = `${th} text-right`;
+export const td = "px-2 py-2 align-middle";
+export const tdNum = `${td} text-right tabular-nums`;
 
-function SortHeader({ col, state, path }: { col: (typeof COLUMNS)[number]; state: QueryState; path: string }) {
+export function SortHeader<K extends string>({ col, state, path }: { col: SortColumn<K>; state: QueryState<K>; path: string }) {
   const active = state.sort === col.key;
   const next = nextSort(state, col.key);
   const arrow = active ? (state.dir === "desc" ? "▼" : "▲") : "";

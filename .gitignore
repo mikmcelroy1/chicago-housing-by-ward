@@ -47,3 +47,5 @@ next-env.d.ts
 /data/review-queue.csv
 /data/golden-mismatches.csv
 /data/drift.csv
+/data/zoning-review-queue.csv
+/data/zoning-golden-mismatches.csv

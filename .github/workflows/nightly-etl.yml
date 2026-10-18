@@ -16,9 +16,11 @@ concurrency:
 jobs:
   etl:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # The zoning stage reads up to 25 scanned exhibits a night with tesseract (about a minute each).
+    timeout-minutes: 90
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ZONING_DATABASE_URL: ${{ secrets.ZONING_DATABASE_URL }}
       SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
       VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
     steps:
@@ -34,7 +36,20 @@ jobs:
         run: npm run sync-wards
       - name: Pull, classify, and load permits
         run: npm run etl
-      - name: Upload the review queue, golden mismatches and drift
+      # The zoning stage: copy zoning matters from chicago-budget (incremental on top of the cached copy, so a
+      # fresh runner does not re-copy 200 MB of ordinance text), read them, read a few scanned exhibits with OCR,
+      # place and link, load. Runs whether or not the permit step changed anything; a red run is the alarm.
+      - name: Install poppler and tesseract for the scanned exhibits
+        run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils tesseract-ocr
+      - name: Restore the last copy of the zoning matters
+        uses: actions/cache@v4
+        with:
+          path: data/cache/zoning-matters.json
+          key: zoning-matters-${{ github.run_id }}
+          restore-keys: zoning-matters-
+      - name: Copy, read, place and link zoning actions
+        run: npm run etl-zoning
+      - name: Upload the review queues, golden mismatches and drift
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -43,4 +58,6 @@ jobs:
             data/review-queue.csv
             data/golden-mismatches.csv
             data/drift.csv
+            data/zoning-review-queue.csv
+            data/zoning-golden-mismatches.csv
           if-no-files-found: ignore

@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "tsx --test tests/*.test.ts",
     "etl": "tsx --env-file-if-exists=.env.local scripts/ingest-permits.ts",
+    "etl-zoning": "tsx --env-file-if-exists=.env.local scripts/ingest-zoning.ts",
     "migrate": "tsx --env-file-if-exists=.env.local scripts/apply-migration.ts",
     "sync-wards": "tsx --env-file-if-exists=.env.local scripts/sync-wards.ts",
     "load-denominator": "tsx --env-file-if-exists=.env.local scripts/load-denominator.ts",

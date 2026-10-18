@@ -72,8 +72,8 @@ async function loadBefore(): Promise<{ snapshot: Snapshot; label: string }> {
       "select id, project_key, kind, ward, units_delta, counted, first_issue_date::text, primary_permit_id, permit_no, address, lat, lon, alder_tenure_id, subsidized, replaced_units, merged_into, status, description, reported_cost, review_type, needs_review, ward_geom_mismatch, flags from projects",
     )).rows as (Omit<Project, "permit_ids" | "reported_cost"> & { reported_cost: string | null })[];
     const run = (await c.query("select id, finished_at from etl_runs where status = 'ok' and finished_at is not null order by id desc limit 1")).rows[0] as { id: number; finished_at: Date } | undefined;
-    const projects: Project[] = rows.map((r) => ({ ...r, permit_ids: [], reported_cost: r.reported_cost === null ? null : Number(r.reported_cost), flags: r.flags ?? [] }));
-    const snapshot: Snapshot = { generated_at: run ? new Date(run.finished_at).toISOString() : "", window_start: "2023-05-15", wards, tenures, flags: [], projects, counts: {} };
+    const projects: Project[] = rows.map((r) => ({ ...r, permit_ids: [], reported_cost: r.reported_cost === null ? null : Number(r.reported_cost), flags: r.flags ?? [], action_matter_id: null }));
+    const snapshot: Snapshot = { generated_at: run ? new Date(run.finished_at).toISOString() : "", window_start: "2023-05-15", wards, tenures, flags: [], projects, counts: {}, actions: [], action_projects: [], key_ordinances: [], sponsorships: [] };
     return { snapshot, label: `live database, ETL run ${run?.id ?? "?"}` };
   } finally {
     await c.end().catch(() => {});

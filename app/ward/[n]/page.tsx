@@ -6,11 +6,14 @@ import { Suspense } from "react";
 import type { AlderTenure, Project } from "@/scripts/lib/types";
 import { Avatar } from "@/components/Avatar";
 import { FlagList } from "@/components/FlagList";
+import { KeyVotes } from "@/components/KeyVotes";
+import { linkedProjects, ZoningActionList } from "@/components/ZoningActionList";
 import { ProjectFilters } from "@/components/ProjectFilters";
 import { ProjectList } from "@/components/ProjectList";
 import { SignedUnits } from "@/components/SignedNumber";
 import { StatTiles } from "@/components/StatTiles";
 import { WindowControls } from "@/components/WindowControls";
+import { selectActions, wardFlagsWithDerived } from "@/lib/actions";
 import { getSnapshot } from "@/lib/data";
 import { todayInChicago } from "@/lib/dates";
 import { formatDate, formatInt, isProjectKind } from "@/lib/format";
@@ -102,7 +105,10 @@ async function WardDetail({ params, searchParams }: { params: Params; searchPara
   const inWindow = projectsInWindow(snapshot.projects, window, opts).filter((p) => p.ward === ward);
   const stats = wardStats(ward, wardRow?.units_2020 ?? null, inWindow);
   const tenures = tenuresOverlapping(snapshot.tenures, ward, window);
-  const flags = snapshot.flags.filter((f) => f.ward === ward);
+  const flags = wardFlagsWithDerived(snapshot).filter((f) => f.ward === ward);
+  const actions = selectActions(snapshot, window, ward);
+  const linked = linkedProjects(snapshot.action_projects, snapshot.projects);
+  const votes = snapshot.sponsorships.filter((s) => s.ward === ward);
 
   const listed = selectProjects(snapshot, { window, opts, ward, kind, counted });
   const groups = groupByTenure(listed, tenures, snapshot.tenures);
@@ -191,6 +197,33 @@ async function WardDetail({ params, searchParams }: { params: Params; searchPara
           <ProjectList projects={listed} />
         )}
       </section>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h2 className="text-lg font-semibold">
+            Zoning actions <span className="font-normal text-zinc-500 dark:text-zinc-400">({formatInt(actions.length)})</span>
+          </h2>
+          <Link href="/methodology#alder-actions" className="text-sm text-zinc-500 underline underline-offset-2 dark:text-zinc-400">
+            How these are read
+          </Link>
+        </div>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Every rezoning and planned development in this ward in the period, from the City Clerk&apos;s record. A passed one is the alder&apos;s yes.
+          Settled matters are dated by their final action, pending ones by their filing.
+        </p>
+        <ZoningActionList actions={actions} linked={linked} />
+      </section>
+
+      {snapshot.key_ordinances.length ? (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold">Key housing votes</h2>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Citywide housing ordinances from a short list, with this ward&apos;s alder&apos;s part in each. Council votes on these pass by wide margins, so
+            sponsorship is the signal.
+          </p>
+          <KeyVotes ordinances={snapshot.key_ordinances} sponsorships={votes} />
+        </section>
+      ) : null}
     </div>
   );
 }

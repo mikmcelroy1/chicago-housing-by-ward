@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { CityBand } from "@/components/CityBand";
+import { PageTabs } from "@/components/PageTabs";
 import { RankingCards } from "@/components/RankingCards";
 import { MobileSort } from "@/components/MobileSort";
 import { RankingTable, type RankingRow } from "@/components/RankingTable";
@@ -8,6 +9,7 @@ import { WindowControls } from "@/components/WindowControls";
 import { getSnapshot } from "@/lib/data";
 import { todayInChicago } from "@/lib/dates";
 import { parseQuery, type SearchParams } from "@/lib/query";
+import { wardFlagsWithDerived } from "@/lib/actions";
 import { cityTotals, rankWithChange, tenureSplit, wardsChangedHands } from "@/lib/rank";
 
 export default function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -31,19 +33,21 @@ async function Rankings({ searchParams }: { searchParams: Promise<SearchParams> 
   const opts = { completedOnly: state.completed };
 
   const wardRows = new Map(snapshot.wards.map((w) => [w.ward, w]));
+  const flags = wardFlagsWithDerived(snapshot);
   const ranked = rankWithChange(snapshot, window, state.sort, opts);
   const ordered = state.dir === "asc" ? [...ranked].reverse() : ranked;
   const rows: RankingRow[] = ordered.map((r) => ({
     ...r,
     wardRow: wardRows.get(r.ward),
     splits: tenureSplit(snapshot, r.ward, window, opts),
-    flags: snapshot.flags.filter((f) => f.ward === r.ward),
+    flags: flags.filter((f) => f.ward === r.ward),
   }));
   const changedHands = wardsChangedHands(snapshot, window);
   const totals = cityTotals(ranked, snapshot.wards);
 
   return (
     <div className="mt-6 flex flex-col gap-5">
+      <PageTabs current="permits" state={state} />
       <WindowControls path="/" state={state} today={today} windowStart={snapshot.window_start} />
       {changedHands > 0 ? (
         <p className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-800 dark:text-zinc-300">
@@ -53,11 +57,11 @@ async function Rankings({ searchParams }: { searchParams: Promise<SearchParams> 
       ) : null}
       <CityBand totals={totals} state={state} />
       <div className="hidden sm:block">
-        <RankingTable rows={rows} state={state} showFlags={snapshot.flags.length > 0} />
+        <RankingTable rows={rows} state={state} showFlags={flags.length > 0} />
       </div>
       <div className="flex flex-col gap-3 sm:hidden">
         <MobileSort path="/" state={state} />
-        <RankingCards rows={rows} state={state} showFlags={snapshot.flags.length > 0} />
+        <RankingCards rows={rows} state={state} showFlags={flags.length > 0} />
       </div>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         Net = gross units permitted minus units lost to demolition and deconversion. A building torn down for a rebuild at the same address

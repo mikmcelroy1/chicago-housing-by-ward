@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import type { SortDir, SortKey } from "@/lib/rank";
+import type { SortDir } from "@/lib/rank";
 
 interface Props {
   path: string;
   from: string;
   to: string;
-  sort: SortKey;
+  sort: string;
+  /** The sort the page opens on, left out of the URL. */
+  defaultSort: string;
   dir: SortDir;
   completed: boolean;
   customActive: boolean;
@@ -26,11 +28,11 @@ const chip = (active: boolean) =>
   }`;
 
 /** GET form for the time period and the completed-only toggle. Works without JavaScript via the Apply button. */
-export function ControlsForm({ path, from, to, sort, dir, completed, customActive, extra, presets }: Props) {
+export function ControlsForm({ path, from, to, sort, defaultSort, dir, completed, customActive, extra, presets }: Props) {
   const [customOpen, setCustomOpen] = useState(customActive);
   return (
     <form method="get" action={path} className="flex flex-col gap-3">
-      {sort !== "rate" ? <input type="hidden" name="sort" value={sort} /> : null}
+      {sort !== defaultSort ? <input type="hidden" name="sort" value={sort} /> : null}
       {dir === "asc" ? <input type="hidden" name="dir" value="asc" /> : null}
       {Object.entries(extra).map(([k, v]) => (v ? <input key={k} type="hidden" name={k} value={v} /> : null))}
 

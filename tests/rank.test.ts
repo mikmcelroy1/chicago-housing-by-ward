@@ -42,6 +42,7 @@ function project(overrides: Partial<Project> & { ward: number; kind: ProjectKind
     reported_cost: null,
     review_type: null,
     needs_review: false,
+    action_matter_id: null,
     counted,
     ...overrides,
   };
@@ -64,6 +65,10 @@ function snapshot(partial: Partial<Snapshot>): Snapshot {
     flags: [],
     projects: [],
     counts: {},
+    actions: [],
+    action_projects: [],
+    key_ordinances: [],
+    sponsorships: [],
     ...partial,
   };
 }

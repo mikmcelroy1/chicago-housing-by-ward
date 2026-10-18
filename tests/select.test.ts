@@ -8,11 +8,11 @@ function project(o: Partial<Project> & { ward: number; kind: ProjectKind; units_
   seq += 1;
   return {
     id: `p${seq}`, project_key: `k${seq}`, counted: true, primary_permit_id: `${seq}`, permit_no: `B${seq}`, permit_ids: [], address: "1 MAIN ST", lat: null, lon: null,
-    alder_tenure_id: null, subsidized: false, replaced_units: 0, merged_into: null, status: "ACTIVE", description: "", reported_cost: null, review_type: null, needs_review: false, ward_geom_mismatch: false, flags: [], ...o,
+    alder_tenure_id: null, subsidized: false, replaced_units: 0, merged_into: null, status: "ACTIVE", description: "", reported_cost: null, review_type: null, needs_review: false, ward_geom_mismatch: false, flags: [], action_matter_id: null, ...o,
   };
 }
 const snap: Snapshot = {
-  generated_at: "", window_start: "2023-05-15", wards: [], tenures: [], flags: [], counts: {},
+  generated_at: "", window_start: "2023-05-15", wards: [], tenures: [], flags: [], counts: {}, actions: [], action_projects: [], key_ordinances: [], sponsorships: [],
   projects: [
     project({ ward: 1, kind: "new_construction", units_delta: 3, first_issue_date: "2026-01-10" }),
     project({ ward: 2, kind: "demolition", units_delta: -1, first_issue_date: "2026-03-01" }),

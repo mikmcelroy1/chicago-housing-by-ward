@@ -39,6 +39,18 @@ export interface ParcelCache {
   addressToPins: Record<string, AddressParcel[]>;
   /** "17091050310000:2025" -> the record used, or null when the parcel has no record in that year or the two before (not saved). */
   unitsByPinYear: Record<string, ParcelUnits | null>;
+  /** 14-digit PIN -> the ward the parcel universe places it in under the 2023 map, or null when it is not listed (not saved). */
+  wardByPin: Record<string, number | null>;
+  /** 14-digit PIN -> land square feet from the assessor's improvement or commercial records, or null when neither has it (not saved). */
+  lotByPin: Record<string, ParcelLot | null>;
+}
+export interface ParcelLot {
+  pin: string;
+  land_sf: number;
+  source: "improvement_chars" | "commercial_valuation";
+  year: number;
+  /** Commercial land is valued per building key, which may span several PINs; lots sharing a key count once. */
+  sig: string | null;
 }
 export interface ParcelUnits {
   pin: string;
@@ -51,7 +63,7 @@ export interface ParcelUnits {
 }
 
 export function emptyParcelCache(): ParcelCache {
-  return { addressToPins: {}, unitsByPinYear: {} };
+  return { addressToPins: {}, unitsByPinYear: {}, wardByPin: {}, lotByPin: {} };
 }
 
 function isAddressParcels(v: unknown): v is AddressParcel[] {
@@ -60,20 +72,27 @@ function isAddressParcels(v: unknown): v is AddressParcel[] {
 function isParcelUnits(v: unknown): v is ParcelUnits {
   return !!v && typeof v === "object" && "sig" in v && typeof (v as ParcelUnits).pin === "string";
 }
+function isParcelLot(v: unknown): v is ParcelLot {
+  return !!v && typeof v === "object" && typeof (v as ParcelLot).land_sf === "number" && typeof (v as ParcelLot).pin === "string";
+}
 
 /** Drop misses so they are retried next run. */
 export function pruneParcelCache(cache: ParcelCache): ParcelCache {
   return {
     addressToPins: Object.fromEntries(Object.entries(cache.addressToPins).filter(([, pins]) => pins.length > 0)),
     unitsByPinYear: Object.fromEntries(Object.entries(cache.unitsByPinYear).filter(([, r]) => r !== null)),
+    wardByPin: Object.fromEntries(Object.entries(cache.wardByPin ?? {}).filter(([, w]) => w !== null)),
+    lotByPin: Object.fromEntries(Object.entries(cache.lotByPin ?? {}).filter(([, l]) => l !== null)),
   };
 }
 
 /** Keep only entries in the current shape; older ones (one PIN per address, records without a fingerprint) are re-resolved. */
-function adopt(raw: { addressToPins?: Record<string, unknown>; unitsByPinYear?: Record<string, unknown> }): ParcelCache {
+function adopt(raw: { addressToPins?: Record<string, unknown>; unitsByPinYear?: Record<string, unknown>; wardByPin?: Record<string, unknown>; lotByPin?: Record<string, unknown> }): ParcelCache {
   const cache = emptyParcelCache();
   for (const [k, v] of Object.entries(raw.addressToPins ?? {})) if (isAddressParcels(v)) cache.addressToPins[k] = v;
   for (const [k, v] of Object.entries(raw.unitsByPinYear ?? {})) if (isParcelUnits(v)) cache.unitsByPinYear[k] = v;
+  for (const [k, v] of Object.entries(raw.wardByPin ?? {})) if (typeof v === "number" && v >= 1 && v <= 50) cache.wardByPin[k] = v;
+  for (const [k, v] of Object.entries(raw.lotByPin ?? {})) if (isParcelLot(v)) cache.lotByPin[k] = v;
   return cache;
 }
 
@@ -97,19 +116,23 @@ export interface Queryable {
 export interface CacheKeys {
   addresses: Set<string>;
   units: Set<string>;
+  wards: Set<string>;
+  lots: Set<string>;
 }
 
 /** The keys present now, taken before a run so saveParcelCacheDb only writes what the run added. */
 export function cacheKeys(cache: ParcelCache): CacheKeys {
-  return { addresses: new Set(Object.keys(cache.addressToPins)), units: new Set(Object.keys(cache.unitsByPinYear)) };
+  return { addresses: new Set(Object.keys(cache.addressToPins)), units: new Set(Object.keys(cache.unitsByPinYear)), wards: new Set(Object.keys(cache.wardByPin)), lots: new Set(Object.keys(cache.lotByPin)) };
 }
 
 export async function loadParcelCacheDb(db: Queryable): Promise<ParcelCache> {
-  const raw: { addressToPins: Record<string, unknown>; unitsByPinYear: Record<string, unknown> } = { addressToPins: {}, unitsByPinYear: {} };
+  const raw: { addressToPins: Record<string, unknown>; unitsByPinYear: Record<string, unknown>; wardByPin: Record<string, unknown>; lotByPin: Record<string, unknown> } = { addressToPins: {}, unitsByPinYear: {}, wardByPin: {}, lotByPin: {} };
   const { rows } = await db.query("select kind, key, value from parcel_cache");
   for (const r of rows) {
     if (r.kind === "address") raw.addressToPins[String(r.key)] = r.value;
     else if (r.kind === "units") raw.unitsByPinYear[String(r.key)] = r.value;
+    else if (r.kind === "ward") raw.wardByPin[String(r.key)] = r.value;
+    else if (r.kind === "lot") raw.lotByPin[String(r.key)] = r.value;
   }
   return adopt(raw);
 }
@@ -120,6 +143,8 @@ export async function saveParcelCacheDb(db: Queryable, cache: ParcelCache, befor
   const rows: [string, string, unknown][] = [];
   for (const [k, v] of Object.entries(pruned.addressToPins)) if (!before.addresses.has(k)) rows.push(["address", k, v]);
   for (const [k, v] of Object.entries(pruned.unitsByPinYear)) if (!before.units.has(k)) rows.push(["units", k, v]);
+  for (const [k, v] of Object.entries(pruned.wardByPin)) if (!before.wards.has(k)) rows.push(["ward", k, v]);
+  for (const [k, v] of Object.entries(pruned.lotByPin)) if (!before.lots.has(k)) rows.push(["lot", k, v]);
   for (const batch of chunk(rows, 500)) {
     const params: unknown[] = [];
     const tuples = batch.map(([kind, key, value]) => {
@@ -263,4 +288,78 @@ export async function resolveUnits(items: { pin: string; year: number }[], cache
     }
     cache.unitsByPinYear[key] = result;
   }
+}
+
+/** The ward each parcel sits in under the 2023 map, from the parcel universe's newest year. Misses are kept for the run, not saved. */
+export async function resolveWards(pins: string[], cache: ParcelCache): Promise<void> {
+  const todo = [...new Set(pins)].filter((p) => p.length === 14 && !(p in cache.wardByPin));
+  for (const batch of chunk(todo, 50)) {
+    const rows = await soql<{ pin: string; ward_num: string | null; year: string }>(COOK, UNIVERSE, {
+      select: "pin,ward_num,year",
+      where: `pin in(${batch.map(lit).join(",")}) AND year >= 2023`,
+      order: "year DESC",
+      limit: 5000,
+    });
+    const seen = new Set<string>();
+    for (const r of rows) {
+      if (seen.has(r.pin)) continue;
+      seen.add(r.pin);
+      const w = Math.trunc(Number(r.ward_num));
+      cache.wardByPin[r.pin] = w >= 1 && w <= 50 ? w : null;
+    }
+    for (const p of batch) if (!(p in cache.wardByPin)) cache.wardByPin[p] = null;
+  }
+}
+
+/**
+ * Land square feet per parcel: the improvement characteristics record for houses and small apartment buildings,
+ * the commercial valuation record for everything the assessor values as commercial. Vacant land has neither.
+ */
+export async function resolveLots(pins: string[], cache: ParcelCache): Promise<void> {
+  const todo = [...new Set(pins)].filter((p) => p.length === 14 && !(p in cache.lotByPin));
+  for (const batch of chunk(todo, 50)) {
+    const inPins = batch.map(lit).join(",");
+    const rows = await soql<{ pin: string; year: string; char_land_sf: string | null }>(COOK, IMPROVEMENTS, {
+      select: "pin,year,char_land_sf",
+      where: `pin in(${inPins}) AND char_land_sf IS NOT NULL`,
+      order: "year DESC",
+      limit: 5000,
+    });
+    for (const r of rows) {
+      if (r.pin in cache.lotByPin && cache.lotByPin[r.pin] !== null) continue;
+      const sf = Math.trunc(Number(r.char_land_sf));
+      if (sf > 0) cache.lotByPin[r.pin] = { pin: r.pin, land_sf: sf, source: "improvement_chars", year: Math.trunc(Number(r.year)), sig: null };
+    }
+    const rest = batch.filter((p) => !(p in cache.lotByPin));
+    if (rest.length) {
+      const crows = await soql<{ keypin: string; pins: string; year: string; landsf: string | null }>(COOK, COMMERCIAL, {
+        select: "keypin,pins,year,landsf",
+        where: `landsf IS NOT NULL AND (${rest.map((p) => `pins like ${lit("%" + p + "%")}`).join(" OR ")})`,
+        order: "year DESC",
+        limit: 5000,
+      });
+      for (const r of crows) {
+        const sf = Math.trunc(Number(r.landsf));
+        if (!(sf > 0)) continue;
+        for (const p of rest) if ((r.pins ?? "").includes(p) && !(p in cache.lotByPin)) cache.lotByPin[p] = { pin: p, land_sf: sf, source: "commercial_valuation", year: Math.trunc(Number(r.year)), sig: `keypin:${r.keypin}` };
+      }
+    }
+    for (const p of batch) if (!(p in cache.lotByPin)) cache.lotByPin[p] = null;
+  }
+}
+
+/** Total land of a set of parcels, counting lots that share one commercial building key once. Null when none is known. */
+export function sumLots(pins: string[], cache: ParcelCache): number | null {
+  const seen = new Set<string>();
+  let total = 0, known = 0;
+  for (const p of pins) {
+    const l = cache.lotByPin[p];
+    if (!l) continue;
+    const k = l.sig ?? l.pin;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    total += l.land_sf;
+    known += 1;
+  }
+  return known ? total : null;
 }

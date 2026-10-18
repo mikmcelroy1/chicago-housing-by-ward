@@ -383,9 +383,18 @@ function writeSnapshot(permits: Permit[], projects: Project[], tenures: AlderTen
     const cur = tenures.find((t) => t.ward === ward && !t.end_date);
     return { ward, units_2020: denom[ward]?.units_2020 ?? null, pop_2020: denom[ward]?.pop_2020 ?? null, alder_current: cur?.name ?? null, website: null };
   });
-  const snapshot: Snapshot = { generated_at: new Date().toISOString(), window_start: SINCE, wards, tenures, flags: wardFlags, projects, counts };
+  // The zoning stage (scripts/ingest-zoning.ts) writes its tables into the same file; keep them until it runs again.
+  const file = join(DATA, "fixtures", "snapshot.json");
+  const previous: Partial<Snapshot> = existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Partial<Snapshot>) : {};
+  // Projects are rebuilt from scratch; the links the zoning stage made are carried over by project id until it runs again.
+  const linkOf = new Map((previous.action_projects ?? []).map((l) => [l.project_id, l.matter_id]));
+  for (const p of projects) p.action_matter_id = linkOf.get(p.id) ?? null;
+  const snapshot: Snapshot = {
+    generated_at: new Date().toISOString(), window_start: SINCE, wards, tenures, flags: wardFlags, projects, counts,
+    actions: previous.actions ?? [], action_projects: previous.action_projects ?? [], key_ordinances: previous.key_ordinances ?? [], sponsorships: previous.sponsorships ?? [],
+  };
   mkdirSync(join(DATA, "fixtures"), { recursive: true });
-  writeFileSync(join(DATA, "fixtures", "snapshot.json"), JSON.stringify(snapshot));
+  writeFileSync(file, JSON.stringify(snapshot));
   console.log(`snapshot: data/fixtures/snapshot.json (${projects.length} projects, ${permits.length} permits)`);
 }
 

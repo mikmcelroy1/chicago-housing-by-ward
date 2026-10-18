@@ -166,9 +166,10 @@ function pickPrimary(members: ClassifiedPermit[], source: DemolitionSource): Cla
 
 export function buildProjects(items: ClassifiedPermit[], opts: BuildOptions): Project[] {
   const projects: Project[] = [];
-  const finish = (p: Omit<Project, "alder_tenure_id" | "subsidized" | "replaced_units" | "merged_into">): Project => ({
+  const finish = (p: Omit<Project, "alder_tenure_id" | "subsidized" | "replaced_units" | "merged_into" | "action_matter_id">): Project => ({
     replaced_units: 0,
     merged_into: null,
+    action_matter_id: null,
     ...p,
     alder_tenure_id: tenureFor(opts.tenures, p.ward, p.first_issue_date)?.id ?? null,
     subsidized: p.lat !== null && p.lon !== null ? opts.subsidizedAt(p.lat, p.lon) : false,

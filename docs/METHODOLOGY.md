@@ -30,6 +30,9 @@ Permits lag approvals. A large project permitted in an alder's first year was us
 | Cook County Assessor [parcel records](https://datacatalog.cookcountyil.gov/d/nj4t-kc8j) | Unit counts of demolished buildings, and the existing-unit denominator |
 | City of Chicago [Affordable Rental Housing Developments](https://data.cityofchicago.org/d/s6ha-ppgi) | The subsidized flag on projects |
 | A hand-maintained list of alder tenures | Who held each seat when, with a source for each change |
+| City Clerk [eLMS](https://api.chicityclerkelms.chicago.gov) Council matters, via the Chicago Budget project's nightly copy | Zoning reclassification ordinances since 2019 and the key housing ordinances: titles, texts, outcomes, sponsors, roll calls, exhibits |
+| Cook County Assessor [parcel universe](https://datacatalog.cookcountyil.gov/d/nj4t-kc8j) and improvement records | Which ward a rezoned site sits in, and its lot size |
+| [Title 17](https://codelibrary.amlegal.com/codes/chicago/latest/chicagozoning_il/0-0-0-48935), the Chicago Zoning Ordinance | Minimum lot area per home and floor area ratio by district, for direction and allowed homes |
 
 The permit data refreshes nightly. Only permits issued on or after May 15, 2023 are included, because the city records each permit's ward as of the day it was issued and the ward map changed on that date.
 
@@ -88,6 +91,71 @@ The "completed only" toggle restricts the count to projects whose primary permit
 The dollar figure on each project is the estimated construction cost the applicant reported on the permit. It is not the permit fee. Applicants have reason to report low, so treat it as a floor.
 
 A handful of permits since 2023 carry no ward and no coordinates and cannot be placed. They are excluded and the count is stated in the site footer.
+
+## Alder actions
+
+The permit ranking measures where the market builds. The **Alder actions** tab measures what the alder did about it: the rezonings and planned developments they let through, the ones that stalled, the downzonings they sponsored, the ADU opt-in, and their part in citywide housing ordinances. Its unit of credit is a City Council action in the ward during the alder's tenure. Zoning map amendments pass or die on the local alder's word (aldermanic prerogative), so a passed amendment is the alder's yes and a stalled one is their no, or at least not yet.
+
+### What counts as an alder action
+
+Every zoning reclassification ordinance in the City Clerk's record since January 1, 2019, read from the [Chicago Budget](https://github.com/mikmcelroy1/chicago-budget) project's nightly copy of the Clerk's eLMS data. Matters from 2019 are loaded, though permits before May 2023 are not ranked, so a rezoning that preceded a 2023 permit by a few years is still linked to it.
+
+| Action | What it is | Read as |
+| --- | --- | --- |
+| Zoning map amendment, passed | A rezoning of one site, including Type 1 site-plan rezonings | The alder's yes |
+| Planned development, passed or amended | A negotiated zoning for a large site, usually a tower or a campus | The alder's yes on the biggest projects |
+| Zoning map amendment, stalled | Introduced but pending for 180 days or more | The alder's no, or not yet. Most rejections never reach a vote; they sit |
+| Downzoning | A map amendment to a district that allows fewer homes, usually sponsored by the alder | The alder removing capacity |
+| ADU opt-in | An ordinance opting the ward into the 2025 accessory dwelling unit rules | The alder adding capacity by right |
+| Key housing ordinances | Citywide housing rules from a short hand-kept list (`data/key_ordinances.csv`) | The alder's position when it costs them nothing locally, read from sponsorship, since Council votes on these pass 46-0 to 49-0 |
+
+Not an action: a permit (the market's act, on the permits tab), a landmark designation, and anything said at a community meeting. A private application arrives as a "Misc. Transmittal" from the Zoning Administrator, so the alder is not its sponsor; support is read from passage. Applications filed from an alder's ward office (an "A" application number) are the alder's own.
+
+An application pending less than 180 days is **undecided**: shown in the ward's list with the days since filing, and left out of every count. Pending 180 days or more is **stalled**: counted as requested, not approved. Passed, filed, withdrawn and failed are settled. The 180 days is about three times the median time from filing to passage (56 days).
+
+### Reading a zoning ordinance
+
+Every map amendment follows one sentence: "the Chicago Zoning Ordinance be amended by changing all the B3-2 Community Shopping District symbols and indications as shown on Map No. 9-G in the area bounded by ... to those of a B2-3 Neighborhood Mixed-Use District." The reading takes these from the title and that sentence:
+
+1. **Site.** From the title: "at 3724 W Le Moyne St" or a range "at 1401-1459 N Magnolia Ave". A range with both ends odd, or both even, is one side of the street. When the title gives no address, the ordinance's own "Common Address" line is used.
+2. **Application number and Type 1.** "App No. 23187T1": a number means a private application; the T1 suffix means a Type 1 rezoning bound to a site plan; an "A" number is the alder's own filing.
+3. **From and to district.** The district after "changing all the" and after "to those of". An ordinance with several sections (first to a plain district, then to a planned development) ends in the last section's district. Letters that a scanner misreads inside a code ("CI-I" for C1-1, "RMS" for RM-5) are corrected; a code no district has (RT-4.5) is read as the one meant (RM-4.5).
+4. **Direction.** The two districts are compared on how many homes they allow per square foot of lot (Title 17's minimum lot area per unit); when that is equal, or neither allows homes, on floor area ratio. More homes is an **upzoning**, fewer a **downzoning**, the same a **lateral** change. A manufacturing or C3 district allows no homes, so leaving one for any residential or mixed district is up. A new planned development is its own direction; so is an amendment of an existing one.
+5. **Ward.** The site's street numbers are resolved through the Cook County Assessor's address table to parcels, and the parcels to the ward the parcel universe places them in under the 2023 map. When no parcel resolves, the permits at the same address decide; then the sponsoring alder's ward; otherwise the matter goes to review and is left out of the ranking.
+6. **Homes requested and approved.** For a planned development, the "Maximum Dwelling Unit Count" line of its bulk table: the "Statements and Plans" exhibit as filed gives requested, the final one gives approved; a matter with no substitute has one number for both. For a Type 1 rezoning, the unit-count rules the permit classifier uses are run on the narrative ("a new 4 story mixed use building with 3 dwelling units"), with a labeled total ("Residential Dwelling Units: 30") winning over loose mentions and a number too large for the lot ignored. These exhibits are scanned images, read with OCR a few dozen per night; until an exhibit has been read the matter is marked and the capacity figure below stands in. Older ordinances carry the application form, whose narrative is read the same way for any rezoning. A map amendment that states no count: requested and approved are the homes the rezoning added to what the rules already allowed on the lot (step 7). A planned development's amendment restates the PD's whole bulk table, so where the PD's earlier approval is in the record the amendment approves only the difference. A downzoning requests and approves nothing. Missing is allowed; it goes to the review queue, never guessed. A person's reading of a matter the parser got wrong goes in `data/zoning_overrides.csv` and wins.
+7. **Homes allowed before and after.** The lot's size (the ordinance's own "lot area" or "net site area", else the assessor's land square feet for the parcels) divided by each district's minimum lot area per home, before and after. The difference is the homes the rezoning added to, or removed from, what the rules allow. Planned developments use the approved count as the after.
+8. **Days pending.** Today minus the introduction date for anything not settled; for a passed substitute, the days from filing to passage, shown as context and never ranked.
+
+The density and floor-area tables are Title 17's as published on October 17, 2026: minimum lot area per home RS-1 6,250, RS-2 5,000, RS-3 2,500, RT-3.5 1,250, RT-4 1,000, RM-4.5 700, RM-5 and RM-5.5 400, RM-6 and RM-6.5 300 square feet; business and commercial districts by dash number, -1 2,500, -1.5 1,350, -2 1,000, -3 400, -5 200; downtown districts -3 400, -5 200, -7 145, -10 115, -12 115, -16 100. Floor area ratios: RS-1 0.5, RS-2 0.65, RS-3 0.9, RT-3.5 1.05, RT-4 1.2, RM-4.5 1.7, RM-5 2.0, RM-5.5 2.5, RM-6 4.4, RM-6.5 6.6; business, commercial and manufacturing dash -1 1.2, -1.5 1.5, -2 2.2, -3 3.0, -5 5.0; downtown districts carry their ratio in the dash number. Transit-served and ADU reductions are not applied.
+
+When terms change in committee a substitute ordinance replaces the original and the Clerk keeps both versions on the one record. Requested homes come from the filing, approved homes from the substitute, and the ward page shows both with the units cut and the days from filing to passage. These are context, never part of the ranking: an alder who negotiates before filing leaves no cut in the record.
+
+### Linking approvals to permits
+
+A passed action links to a permit project when the project's address falls inside the action's address range on the same side of the same street, or the project's parcel is one the ordinance names, and the permit was issued after the action passed, up to four years later. A parcel match beats an address match. Several projects can link to one action; a project links to at most one action, the latest that passed before its permit. Only new construction, ADU and conversion projects link. The permit's units are then **discretionary units**: housing that needed the alder's yes. A project linked to a downzoning is shown but does not count as discretionary.
+
+Most housing in Chicago is by right and never crosses the alder's desk in the year it is permitted. The discretionary share is a floor on the alder's hand, not a measure of it: by-right capacity is the product of past zoning decisions, and a denial chills the next application, which no record shows.
+
+### The alder actions rank
+
+For the selected period, per ward. Settled matters select on their final-action date, pending ones on their introduction date.
+
+- **Homes approved per 1,000** = homes approved by the rezonings and planned developments that passed in the period, divided by the ward's existing housing units, times 1,000. The default sort.
+- **Discretionary units** = permitted homes in the period in projects linked to a passed action that was not a downzoning.
+- **Homes requested** = homes asked for in every settled application introduced in the period: passed, stalled or withdrawn.
+- **Approval rate** = approved divided by requested, among those same applications, after adding a typical ward's volume of homes at the citywide rate to both sides: (approved + k × citywide rate) / (requested + k), where k is the median ward's requested homes in the period. One approved project in a quiet ward then lands near the citywide rate instead of at 100%. Hover a cell for the raw rate and the application count.
+- **Allowed homes added** = the sum over passed rezonings of homes allowed after minus before, where both are known; downzonings count against.
+- **Stalled** = applications introduced in the period pending 180 days or more.
+- **ADU** = opted in, partial or none. Opted in is read from the ordinances: a ward whose alder sponsored or co-sponsored an opt-in ordinance on the key list carries the flag, with the ordinance as its source; the hand-kept flag file covers the pilot areas.
+- **Sponsorships** = pro-housing ordinances on the key list, dated in the period, that the alder sponsored or co-sponsored.
+
+Rank 1 is the highest value of the sorted column, as on the permits tab; ties break on homes approved, then ward number. Rank change compares the period to the equal-length period before it. The tab opens on the current council term, because a year holds too few settled applications per ward. A ward with fewer than five settled applications in the period carries the low-sample marker. Rows show the alder in office on each action's date, so a ward that changed hands shows both, split. Matters that could not be placed in a ward are left out of every ward's numbers and counted in the footnote.
+
+### Zoning action markers
+
+On the ward page, each matter shows its direction (upzoning, downzoning, lateral, planned development, PD amendment, or not read), whether it is a Type 1 rezoning, and where it stands (passed on a date, undecided with the days since filing, stalled with the days, or withdrawn, filed or failed). **Needs review** means the parser could not read something it needs; what it did read is under "What was read", and the matter is in the public review queue (`data/zoning-review-queue.csv`). **Exhibits not read yet** means the scanned statements or narrative wait for OCR, so the count shown may be a capacity figure for now. Every matter links to its record on Councilmatic, and each permit it led to is listed under it.
+
+Matters a person has read, with the agreed reading, are kept in `data/zoning_golden.csv`; the parser is tested against them on every change and the nightly run goes red when one disagrees.
 
 ## Flags
 
@@ -167,6 +235,13 @@ The permit's coordinates fall in a different ward from the one the city recorded
 - Vacancy is invisible both ways: a derelict building rehabbed back into use counts zero, and a building that falls vacant without a demolition permit counts zero.
 - The ward on each permit is the city's; where the permit's coordinates fall in a different ward it is flagged, not corrected.
 - Permits lag approvals, so a new alder's first year reflects the predecessor's zoning decisions.
+- Alder actions: projects that never applied are invisible. An alder who kills proposals in the community meeting leaves no record, so every approval rate is an upper bound: applications are usually filed only once the alder is on board.
+- Alder actions: how an alder runs the process shapes the record. One who makes the developer negotiate before filing shows no cut and a fast passage; one who negotiates in committee shows the cut and the delay.
+- Alder actions: aldermanic prerogative is a norm, not a rule. The Zoning Committee has overridden a local alder a handful of times since 2021, so a passed amendment is almost always the alder's yes, not always.
+- Alder actions: a stall is ambiguous. Applicants withdraw, revise or run out of money; a matter pending 180 days is not proof the alder blocked it.
+- Alder actions: requested and approved homes depend on scanned exhibits read with OCR, a few dozen per night, and a share lands in the review queue. Until an exhibit is read, the capacity the new zoning allows stands in.
+- Alder actions: a lot's size comes from the ordinance when it states one, else from assessor records, which have none for vacant land; allowed homes are then unknown and left out of that column.
+- Alder actions: address ranges do not always contain the permit's address, for example a corner building permitted on the side street. Unmatched approvals stay visible as approvals with no linked project.
 
 ## Corrections
 

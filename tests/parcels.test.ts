@@ -46,13 +46,15 @@ test("misses are kept for the run but never saved", () => {
   const cache: ParcelCache = {
     addressToPins: { "474 N MILWAUKEE AVE": [{ pin: "17091050290000", last: 2026 }], "9 W NOWHERE ST": [] },
     unitsByPinYear: { "17091050310000:2025": unit, "17091050290000:2025": null },
+    wardByPin: {},
+    lotByPin: {},
   };
-  assert.deepEqual(pruneParcelCache(cache), { addressToPins: { "474 N MILWAUKEE AVE": [{ pin: "17091050290000", last: 2026 }] }, unitsByPinYear: { "17091050310000:2025": unit } });
+  assert.deepEqual(pruneParcelCache(cache), { addressToPins: { "474 N MILWAUKEE AVE": [{ pin: "17091050290000", last: 2026 }] }, unitsByPinYear: { "17091050310000:2025": unit }, wardByPin: {}, lotByPin: {} });
 });
 
 test("the database cache writes only what a run added", async () => {
   const unit: ParcelUnits = { pin: "P2", year: 2025, cls: "202", units: 1, source: "class_sfr", sig: "bldg:202||1200|1950" };
-  const cache: ParcelCache = { addressToPins: { "1 W OLD ST": [{ pin: "P1", last: 2026 }] }, unitsByPinYear: { "P1:2025": unit } };
+  const cache: ParcelCache = { addressToPins: { "1 W OLD ST": [{ pin: "P1", last: 2026 }] }, unitsByPinYear: { "P1:2025": unit }, wardByPin: {}, lotByPin: {} };
   const before = cacheKeys(cache);
   cache.addressToPins["2 W NEW ST"] = [{ pin: "P2", last: 2026 }];
   cache.addressToPins["3 W MISS ST"] = [];

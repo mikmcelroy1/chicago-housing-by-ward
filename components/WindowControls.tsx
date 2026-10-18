@@ -5,11 +5,13 @@ import { ControlsForm } from "./ControlsForm";
 
 interface Props {
   path: string;
-  state: QueryState;
+  state: QueryState<string>;
   today: string;
   windowStart: string;
   /** Page-specific params to carry along (e.g. kind, counted on the ward page). */
   extra?: Record<string, string | undefined>;
+  /** What the period selects: "Permits issued" (default) or "Council actions dated". */
+  subject?: string;
 }
 
 const chip = (active: boolean) =>
@@ -19,13 +21,13 @@ const chip = (active: boolean) =>
       : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
   }`;
 
-export function WindowControls({ path, state, today, windowStart, extra = {} }: Props) {
+export function WindowControls({ path, state, today, windowStart, extra = {}, subject = "Permits issued" }: Props) {
   const presets = (["last12", "ytd", "term"] as const).map((preset) => {
     const w = presetWindow(preset, today, windowStart);
     return (
       <Link
         key={preset}
-        href={buildHref(path, { ...w, sort: state.sort, dir: state.dir, completed: state.completed }, extra)}
+        href={buildHref(path, { ...w, sort: state.sort, dir: state.dir, completed: state.completed, defaultSort: state.defaultSort }, extra)}
         aria-current={state.preset === preset ? "page" : undefined}
         className={chip(state.preset === preset)}
       >
@@ -42,6 +44,7 @@ export function WindowControls({ path, state, today, windowStart, extra = {} }: 
         from={state.from}
         to={state.to}
         sort={state.sort}
+        defaultSort={state.defaultSort ?? "rate"}
         dir={state.dir}
         completed={state.completed}
         customActive={state.preset === "custom"}
@@ -49,7 +52,7 @@ export function WindowControls({ path, state, today, windowStart, extra = {} }: 
         presets={presets}
       />
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        Permits issued <time dateTime={state.from}>{formatDate(state.from)}</time> – <time dateTime={state.to}>{formatDate(state.to)}</time>
+        {subject} <time dateTime={state.from}>{formatDate(state.from)}</time> – <time dateTime={state.to}>{formatDate(state.to)}</time>
         {state.completed ? ", completed permits only" : ""}.
       </p>
       {state.completed ? (
