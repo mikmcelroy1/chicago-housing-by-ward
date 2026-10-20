@@ -12,8 +12,8 @@ function metric(row: ActionRow, key: ActionSortKey): ReactNode {
   switch (key) {
     case "approved_rate":
       return <Rate value={row.approved_rate} />;
-    case "discretionary":
-      return formatInt(row.discretionary);
+    case "permitted":
+      return formatInt(row.permitted);
     case "requested":
       return formatInt(row.requested);
     case "approval_rate":

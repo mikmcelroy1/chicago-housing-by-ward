@@ -132,16 +132,16 @@ When terms change in committee a substitute ordinance replaces the original and 
 
 ### Linking approvals to permits
 
-A passed action links to a permit project when the project's address falls inside the action's address range on the same side of the same street, or the project's parcel is one the ordinance names, and the permit was issued after the action passed, up to four years later. A parcel match beats an address match. Several projects can link to one action; a project links to at most one action, the latest that passed before its permit. Only new construction, ADU and conversion projects link. The permit's units are then **discretionary units**: housing that needed the alder's yes. A project linked to a downzoning is shown but does not count as discretionary.
+A passed action links to a permit project when the project's address falls inside the action's address range on the same side of the same street, or the project's parcel is one the ordinance names, and the permit was issued after the action passed, up to four years later. A parcel match beats an address match. Several projects can link to one action; a project links to at most one action, the latest that passed before its permit. Only new construction, ADU and conversion projects link. The permit's units are then the approval's **homes permitted so far**: the follow-through on the alder's yes. A project linked to a downzoning is shown but not counted.
 
-Most housing in Chicago is by right and never crosses the alder's desk in the year it is permitted. The discretionary share is a floor on the alder's hand, not a measure of it: by-right capacity is the product of past zoning decisions, and a denial chills the next application, which no record shows.
+Most housing in Chicago is by right and never crosses the alder's desk in the year it is permitted. The share that needed a rezoning is a floor on the alder's hand, not a measure of it: by-right capacity is the product of past zoning decisions, and a denial chills the next application, which no record shows.
 
 ### The alder actions rank
 
 For the selected period, per ward. Settled matters select on their final-action date, pending ones on their introduction date.
 
 - **Homes approved per 1,000** = homes approved by the rezonings and planned developments that passed in the period, divided by the ward's existing housing units, times 1,000. The default sort.
-- **Discretionary units** = permitted homes in the period in projects linked to a passed action that was not a downzoning.
+- **Permitted so far** = of the homes approved by the rezonings and planned developments that passed in the period, those in a building permit issued since, whatever the permit's date. A permit is not a building, and whether an approval becomes a permit is the developer's move; the column is the follow-through on the headline, not a score.
 - **Homes requested** = homes asked for in every settled application introduced in the period: passed, stalled or withdrawn.
 - **Approval rate** = approved divided by requested, among those same applications, after adding a typical ward's volume of homes at the citywide rate to both sides: (approved + k × citywide rate) / (requested + k), where k is the median ward's requested homes in the period. One approved project in a quiet ward then lands near the citywide rate instead of at 100%. Hover a cell for the raw rate and the application count.
 - **Allowed homes added** = the sum over passed rezonings of homes allowed after minus before, where both are known; downzonings count against.

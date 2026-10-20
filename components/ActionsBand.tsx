@@ -39,7 +39,7 @@ export function ActionsBand({ totals, state }: { totals: CityActionTotals; state
           <Rate value={totals.approved_rate} />
         </Stat>
         <Stat label="Approved">{formatInt(totals.approved)}</Stat>
-        <Stat label="Discretionary">{formatInt(totals.discretionary)}</Stat>
+        <Stat label="Permitted so far">{formatInt(totals.permitted)}</Stat>
         <Stat label="Requested">{formatInt(totals.requested)}</Stat>
         <Stat label="Approval rate">{formatPercent(totals.approval_rate)}</Stat>
         <Stat label="Allowed added">{formatSigned(totals.allowed_added)}</Stat>

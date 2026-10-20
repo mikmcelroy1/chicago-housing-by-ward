@@ -38,7 +38,7 @@ function snapshot(partial: Partial<Snapshot>): Snapshot {
 }
 const W = { from: "2025-01-01", to: "2025-12-31" };
 
-test("ward stats: approved, requested, stalled, undecided, allowed added, discretionary, low sample", () => {
+test("ward stats: approved, requested, stalled, undecided, allowed added, permitted so far, low sample", () => {
   const snap = snapshot({
     wards: [ward(1, 1000), ward(2, 2000)],
     actions: [
@@ -54,8 +54,9 @@ test("ward stats: approved, requested, stalled, undecided, allowed added, discre
   });
   snap.projects = [
     project({ ward: 1, units_delta: 9, first_issue_date: "2025-09-01", action_matter_id: snap.actions[0].matter_id }),
-    project({ ward: 1, units_delta: 4, first_issue_date: "2025-09-01", action_matter_id: snap.actions[4].matter_id }), // linked to a downzoning: not discretionary
-    project({ ward: 1, units_delta: 7, first_issue_date: "2026-02-01", action_matter_id: snap.actions[0].matter_id }), // permitted after the period
+    project({ ward: 1, units_delta: 4, first_issue_date: "2025-09-01", action_matter_id: snap.actions[4].matter_id }), // linked to a downzoning: not counted
+    project({ ward: 1, units_delta: 7, first_issue_date: "2026-02-01", action_matter_id: snap.actions[0].matter_id }), // permitted after the period: still the approval's follow-through
+    project({ ward: 1, units_delta: 3, first_issue_date: "2025-09-01", action_matter_id: snap.actions[7].matter_id }), // its rezoning passed before the period
     project({ ward: 1, units_delta: 5, first_issue_date: "2025-09-01" }), // by right
   ];
   const [w1, w2] = computeWardActionStats(snap, W);
@@ -70,7 +71,7 @@ test("ward stats: approved, requested, stalled, undecided, allowed added, discre
   assert.equal(w1.undecided, 1);
   assert.equal(w1.allowed_added, 9, "+11 from the upzoning, -2 from the downzoning");
   assert.equal(w1.allowed_known, 2);
-  assert.equal(w1.discretionary, 9);
+  assert.equal(w1.permitted, 16, "9 and 7 follow the rezoning that passed in the period; the downzoning's 4 and the earlier rezoning's 3 do not");
   assert.equal(w1.lowSample, true);
   assert.equal(w2.approved, 100);
   assert.equal(w2.approved_rate, 50);
@@ -85,7 +86,7 @@ test("ward stats: approved, requested, stalled, undecided, allowed added, discre
   assert.equal(totals.approved, 115);
   assert.equal(totals.requested, 152);
   assert.equal(totals.approval_rate, city);
-  assert.equal(totals.discretionary, 9);
+  assert.equal(totals.permitted, 16);
   assert.equal(totals.stalled, 1);
 });
 
@@ -110,8 +111,8 @@ test("ranking: nulls last, ties by homes approved, rank change against the prior
   const feb = { from: "2025-02-01", to: "2025-02-28" };
   const ranked = rankActionsWithChange(snap, feb, "approved_rate");
   assert.deepEqual(ranked.map((r) => [r.ward, r.rank, r.rankChange]), [[2, 1, 1], [1, 2, -1], [3, 3, 0]]);
-  const byApproved = rankWardActions(computeWardActionStats(snap, feb), "discretionary");
-  assert.deepEqual(byApproved.map((r) => r.ward), [3, 2, 1], "all tie on discretionary; homes approved breaks the tie");
+  const byApproved = rankWardActions(computeWardActionStats(snap, feb), "permitted");
+  assert.deepEqual(byApproved.map((r) => r.ward), [3, 2, 1], "all tie on permitted so far; homes approved breaks the tie");
 });
 
 test("selection, tenure split, derived ward flags", () => {

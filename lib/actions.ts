@@ -5,8 +5,8 @@
 import type { AlderTenure, KeyOrdinance, Project, Snapshot, WardFlag, ZoningAction } from "@/scripts/lib/types";
 import { GROSS_KINDS, priorWindow, tenuresOverlapping, type DateWindow, type RankOptions } from "./rank";
 
-export type ActionSortKey = "approved_rate" | "discretionary" | "requested" | "approval_rate" | "allowed_added" | "stalled" | "adu" | "sponsorships";
-export const ACTION_SORT_KEYS: readonly ActionSortKey[] = ["approved_rate", "discretionary", "requested", "approval_rate", "allowed_added", "stalled", "adu", "sponsorships"];
+export type ActionSortKey = "approved_rate" | "permitted" | "requested" | "approval_rate" | "allowed_added" | "stalled" | "adu" | "sponsorships";
+export const ACTION_SORT_KEYS: readonly ActionSortKey[] = ["approved_rate", "permitted", "requested", "approval_rate", "allowed_added", "stalled", "adu", "sponsorships"];
 export const DEFAULT_ACTION_SORT: ActionSortKey = "approved_rate";
 /** Fewer settled applications than this in the period and the ward carries the low-sample marker. */
 export const LOW_SAMPLE_APPLICATIONS = 5;
@@ -19,8 +19,8 @@ export interface WardActionStats {
   approved: number;
   /** approved / units_2020 × 1000, null when the denominator is missing. */
   approved_rate: number | null;
-  /** Permitted homes in projects linked to a passed action, by the permit's date. */
-  discretionary: number;
+  /** Of the homes approved by the rezonings that passed in the period, those in a permit so far, whatever the permit's date. */
+  permitted: number;
   /** Homes asked for in every settled application introduced in the period. */
   requested: number;
   /** Homes approved among those same applications (the raw rate's numerator). */
@@ -58,7 +58,7 @@ export interface ActionTenureSplit {
 export interface CityActionTotals {
   approved: number;
   approved_rate: number | null;
-  discretionary: number;
+  permitted: number;
   requested: number;
   approval_rate: number | null;
   allowed_added: number;
@@ -158,23 +158,24 @@ export function computeWardActionStats(snapshot: Snapshot, window: DateWindow, o
   const actionById = new Map(snapshot.actions.map((a) => [a.matter_id, a]));
   // The links table is the source; the project's own action_matter_id stands in for a snapshot written before it existed.
   const linkOf = new Map(snapshot.action_projects.map((l) => [l.project_id, l.matter_id]));
-  const discretionary = new Map<number, number>();
+  // Homes in permits so far, per action: the follow-through on an approval, whatever the permit's date.
+  const permittedByAction = new Map<string, number>();
   for (const p of snapshot.projects) {
     const matterId = linkOf.get(p.id) ?? p.action_matter_id;
-    if (!matterId || p.first_issue_date < window.from || p.first_issue_date > window.to) continue;
+    if (!matterId) continue;
     if (opts.completedOnly && p.status !== "COMPLETE") continue;
-    const a = actionById.get(matterId);
-    if (!a || a.stage !== "passed" || a.direction === "down") continue;
-    discretionary.set(p.ward, (discretionary.get(p.ward) ?? 0) + grossUnits(p));
+    if (!actionById.has(matterId)) continue;
+    permittedByAction.set(matterId, (permittedByAction.get(matterId) ?? 0) + grossUnits(p));
   }
   const proKeys = snapshot.key_ordinances.filter((k) => k.stance === "pro" && keyInWindow(k, window));
   const stats: WardActionStats[] = snapshot.wards.map((w) => {
     const mine = byWard.get(w.ward) ?? [];
-    let approved = 0, requested = 0, approvedOfRequested = 0, applications = 0, allowedAdded = 0, allowedKnown = 0, passed = 0, stalled = 0, undecided = 0;
+    let approved = 0, permitted = 0, requested = 0, approvedOfRequested = 0, applications = 0, allowedAdded = 0, allowedKnown = 0, passed = 0, stalled = 0, undecided = 0;
     for (const a of mine) {
       if (a.stage === "passed" && actionInWindow(a, window)) {
         passed += 1;
         approved += homesApproved(a);
+        if (a.direction !== "down") permitted += permittedByAction.get(a.matter_id) ?? 0;
         if (a.allowed_before !== null && a.allowed_after !== null) {
           allowedAdded += a.allowed_after - a.allowed_before;
           allowedKnown += 1;
@@ -196,7 +197,7 @@ export function computeWardActionStats(snapshot: Snapshot, window: DateWindow, o
       ward: w.ward,
       approved,
       approved_rate: w.units_2020 !== null && w.units_2020 > 0 ? (approved / w.units_2020) * 1000 : null,
-      discretionary: discretionary.get(w.ward) ?? 0,
+      permitted,
       requested,
       approved_of_requested: approvedOfRequested,
       applications,
@@ -237,8 +238,8 @@ function sortValue(s: WardActionStats, key: ActionSortKey): number | null {
   switch (key) {
     case "approved_rate":
       return s.approved_rate;
-    case "discretionary":
-      return s.discretionary;
+    case "permitted":
+      return s.permitted;
     case "requested":
       return s.requested;
     case "approval_rate":
@@ -295,11 +296,11 @@ export function actionTenureSplit(snapshot: Snapshot, ward: number, window: Date
 }
 
 export function cityActionTotals(stats: readonly WardActionStats[], wards: readonly { ward: number; units_2020: number | null }[]): CityActionTotals {
-  let approved = 0, discretionary = 0, requested = 0, approvedOfRequested = 0, allowedAdded = 0, stalled = 0, passed = 0, units = 0;
+  let approved = 0, permitted = 0, requested = 0, approvedOfRequested = 0, allowedAdded = 0, stalled = 0, passed = 0, units = 0;
   const denominator = new Map(wards.map((w) => [w.ward, w.units_2020]));
   for (const s of stats) {
     approved += s.approved;
-    discretionary += s.discretionary;
+    permitted += s.permitted;
     requested += s.requested;
     approvedOfRequested += s.approved_of_requested;
     allowedAdded += s.allowed_added;
@@ -308,7 +309,7 @@ export function cityActionTotals(stats: readonly WardActionStats[], wards: reado
     const u = denominator.get(s.ward);
     if (u !== null && u !== undefined && u > 0) units += u;
   }
-  return { approved, approved_rate: units > 0 ? (approved / units) * 1000 : null, discretionary, requested, approval_rate: requested > 0 ? approvedOfRequested / requested : null, allowed_added: allowedAdded, stalled, passed };
+  return { approved, approved_rate: units > 0 ? (approved / units) * 1000 : null, permitted, requested, approval_rate: requested > 0 ? approvedOfRequested / requested : null, allowed_added: allowedAdded, stalled, passed };
 }
 
 /** Number of wards with two or more tenures overlapping the window (the same rule as the permits tab). */

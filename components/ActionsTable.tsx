@@ -22,10 +22,10 @@ export const ACTION_COLUMNS: SortColumn<ActionSortKey>[] = [
     anchor: "the-alder-actions-rank",
   },
   {
-    key: "discretionary",
-    label: "Discretionary",
-    menuLabel: "Discretionary units",
-    info: "Homes permitted in this period in projects whose site needed a rezoning or planned development the alder approved. Housing that exists because the alder said yes.",
+    key: "permitted",
+    label: "Permitted so far",
+    menuLabel: "Homes permitted so far",
+    info: "Of the homes approved by the rezonings and planned developments that passed in this period, how many are in a building permit so far, whatever the permit's date. The follow-through on the headline; whether an approval becomes a permit is the developer's move, not the alder's.",
     anchor: "linking-approvals-to-permits",
   },
   {
@@ -172,7 +172,7 @@ export function ActionsTable({ rows, state, path = "/actions" }: { rows: ActionR
                 <td className={tdNum} title={`${formatInt(row.approved)} homes approved in ${formatInt(row.passed)} passed ${row.passed === 1 ? "action" : "actions"}`}>
                   <Rate value={row.approved_rate} />
                 </td>
-                <td className={tdNum}>{formatInt(row.discretionary)}</td>
+                <td className={tdNum}>{formatInt(row.permitted)}</td>
                 <td className={tdNum}>{formatInt(row.requested)}</td>
                 <td className={tdNum} title={rawRateTitle(row)}>
                   {formatPercent(row.approval_rate)}
