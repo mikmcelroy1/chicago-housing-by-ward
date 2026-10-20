@@ -26,7 +26,7 @@ import { parseCsv, toCsv } from "./lib/csv";
 import { ExhibitStore, incomplete, loadExhibitFile, ocrTools, readExhibit, saveExhibitFile, type ExhibitText } from "./lib/exhibits";
 import { cacheKeys, liveParcels, loadParcelCache, loadParcelCacheDb, normalizeAddress, resolveAddresses, resolveLots, resolveWards, saveParcelCache, saveParcelCacheDb, sumLots, type ParcelCache, type Queryable } from "./lib/parcels";
 import { tenureFor } from "./lib/projects";
-import type { ActionProject, AlderSponsorship, AlderTenure, KeyOrdinance, Snapshot, ZoningAction } from "./lib/types";
+import type { ActionDocument, ActionEvent, ActionProject, AlderSponsorship, AlderTenure, KeyOrdinance, Snapshot, ZoningAction } from "./lib/types";
 import { readMatter, type MatterReading } from "./lib/zoning";
 import { compareReading, loadZoningGolden, type ZoningGoldenMismatch } from "./lib/zoning-golden";
 import { enumerateAddresses, indexProjects, linkProjects, wardFromProjects, type LinkableProject } from "./lib/zoning-link";
@@ -373,6 +373,27 @@ function pdAmendmentDeltas(actions: ZoningAction[]): number {
   return adjusted;
 }
 
+/** The record's PDFs in reading order: the ordinance as filed, as passed, then the statements or narrative. */
+function documentsOf(r: ZoningMatterRow): ActionDocument[] {
+  const out: ActionDocument[] = [];
+  const isFinal = (name: string | null) => /^S\w*\d{4}-|\bfinal\b/i.test(name ?? "");
+  const legislation = r.attachments.filter((a) => a.attachment_type === "Legislation" && a.source_url);
+  const exhibits = r.attachments.filter((a) => a.attachment_type === "Exhibits" && a.source_url && !/application|\beds\b|letter|survey/i.test(a.file_name ?? ""));
+  for (const a of legislation) out.push({ label: legislation.length > 1 ? (isFinal(a.file_name) ? "Ordinance as passed" : "Ordinance as filed") : "Ordinance", url: a.source_url! });
+  for (const a of exhibits) {
+    const kind = /narrative/i.test(a.file_name ?? "") ? "Narrative and plans" : "Statements and plans";
+    out.push({ label: exhibits.length > 1 && isFinal(a.file_name) ? `${kind}, final` : kind, url: a.source_url! });
+  }
+  return out;
+}
+
+function historyOf(r: ZoningMatterRow): ActionEvent[] {
+  return r.actions
+    .filter((a): a is { date: string; name: string } => !!a.date && !!a.name)
+    .map((a) => ({ date: a.date, name: a.name }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function toAction(r: ZoningMatterRow, x: MatterReading, p: Placement, tenures: AlderTenure[]): ZoningAction {
   const notes = [...x.notes];
   if (!p.ward) notes.push("ward unknown: no parcel, permit or sponsor placed it");
@@ -414,6 +435,8 @@ function toAction(r: ZoningMatterRow, x: MatterReading, p: Placement, tenures: A
     needs_review: x.needs_review || !p.ward,
     exhibits_pending: x.exhibits_pending,
     notes,
+    documents: documentsOf(r),
+    history: historyOf(r),
   };
 }
 
@@ -555,8 +578,8 @@ async function loadDatabase(db: Client, fresh: ZoningMatterRow[], all: ZoningMat
     );
     if (inventory) await db.query("delete from zoning_matters where matter_id <> all($1::uuid[]) and record_number <> all($2::text[])", [[...inventory], keyRecords]);
     await db.query("delete from zoning_actions");
-    const acols = ["matter_id", "record_number", "title", "introduction_date", "final_action_date", "outcome", "sponsor_ward", "sponsor_name", "sponsored_by_alder", "ward", "ward_source", "alder_tenure_id", "addresses", "address", "pins", "app_no", "type1", "from_districts", "from_district", "to_district", "from_far", "to_far", "direction", "requested_units", "approved_units", "units_source", "lot_sf", "allowed_before", "allowed_after", "stage", "stage_date", "days_pending", "substitute", "days_to_passage", "needs_review", "exhibits_pending", "notes"];
-    await insertRows(db, "zoning_actions", acols, actions.map((a) => [a.matter_id, a.record_number, a.title, a.introduction_date, a.final_action_date, a.outcome, a.sponsor_ward, a.sponsor_name, a.sponsored_by_alder, a.ward, a.ward_source, a.alder_tenure_id, JSON.stringify(a.addresses), a.address, a.pins, a.app_no, a.type1, a.from_districts, a.from_district, a.to_district, a.from_far, a.to_far, a.direction, a.requested_units, a.approved_units, a.units_source, a.lot_sf, a.allowed_before, a.allowed_after, a.stage, a.stage_date, a.days_pending, a.substitute, a.days_to_passage, a.needs_review, a.exhibits_pending, a.notes]));
+    const acols = ["matter_id", "record_number", "title", "introduction_date", "final_action_date", "outcome", "sponsor_ward", "sponsor_name", "sponsored_by_alder", "ward", "ward_source", "alder_tenure_id", "addresses", "address", "pins", "app_no", "type1", "from_districts", "from_district", "to_district", "from_far", "to_far", "direction", "requested_units", "approved_units", "units_source", "lot_sf", "allowed_before", "allowed_after", "stage", "stage_date", "days_pending", "substitute", "days_to_passage", "needs_review", "exhibits_pending", "notes", "documents", "history"];
+    await insertRows(db, "zoning_actions", acols, actions.map((a) => [a.matter_id, a.record_number, a.title, a.introduction_date, a.final_action_date, a.outcome, a.sponsor_ward, a.sponsor_name, a.sponsored_by_alder, a.ward, a.ward_source, a.alder_tenure_id, JSON.stringify(a.addresses), a.address, a.pins, a.app_no, a.type1, a.from_districts, a.from_district, a.to_district, a.from_far, a.to_far, a.direction, a.requested_units, a.approved_units, a.units_source, a.lot_sf, a.allowed_before, a.allowed_after, a.stage, a.stage_date, a.days_pending, a.substitute, a.days_to_passage, a.needs_review, a.exhibits_pending, a.notes, JSON.stringify(a.documents), JSON.stringify(a.history)]));
     await db.query("delete from action_projects");
     await insertRows(db, "action_projects", ["matter_id", "project_id", "lag_days", "match"], links.map((l) => [l.matter_id, l.project_id, l.lag_days, l.match]));
     await db.query("update projects set action_matter_id = null where action_matter_id is not null");

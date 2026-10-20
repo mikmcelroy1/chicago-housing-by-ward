@@ -35,7 +35,7 @@ async function readFixture(): Promise<Snapshot> {
   return {
     ...raw,
     projects: raw.projects.map((p) => ({ ...p, flags: p.flags ?? [], action_matter_id: p.action_matter_id ?? null })),
-    actions: raw.actions ?? [],
+    actions: (raw.actions ?? []).map((a) => ({ ...a, documents: a.documents ?? [], history: a.history ?? [] })),
     action_projects: raw.action_projects ?? [],
     key_ordinances: raw.key_ordinances ?? [],
     sponsorships: raw.sponsorships ?? [],
@@ -93,7 +93,7 @@ async function readSupabase(): Promise<Snapshot> {
     selectAll<ActionRow>(
       supabase,
       "zoning_actions",
-      "matter_id, record_number, title, introduction_date, final_action_date, outcome, sponsor_ward, sponsor_name, sponsored_by_alder, ward, ward_source, alder_tenure_id, addresses, address, pins, app_no, type1, from_districts, from_district, to_district, from_far, to_far, direction, requested_units, approved_units, units_source, lot_sf, allowed_before, allowed_after, stage, stage_date, days_pending, substitute, days_to_passage, needs_review, exhibits_pending, notes",
+      "matter_id, record_number, title, introduction_date, final_action_date, outcome, sponsor_ward, sponsor_name, sponsored_by_alder, ward, ward_source, alder_tenure_id, addresses, address, pins, app_no, type1, from_districts, from_district, to_district, from_far, to_far, direction, requested_units, approved_units, units_source, lot_sf, allowed_before, allowed_after, stage, stage_date, days_pending, substitute, days_to_passage, needs_review, exhibits_pending, notes, documents, history",
       "matter_id",
     ),
     selectAll<ActionProject>(supabase, "action_projects", "matter_id, project_id, lag_days, match", "matter_id"),
@@ -118,6 +118,8 @@ async function readSupabase(): Promise<Snapshot> {
     pins: row.pins ?? [],
     from_districts: row.from_districts ?? [],
     notes: row.notes ?? [],
+    documents: row.documents ?? [],
+    history: row.history ?? [],
   }));
 
   const counts: Record<string, number> = {

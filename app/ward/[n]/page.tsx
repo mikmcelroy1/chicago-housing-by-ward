@@ -6,14 +6,17 @@ import { Suspense } from "react";
 import type { AlderTenure, Project } from "@/scripts/lib/types";
 import { Avatar } from "@/components/Avatar";
 import { FlagList } from "@/components/FlagList";
+import { ActionStatTiles } from "@/components/ActionStatTiles";
 import { KeyVotes } from "@/components/KeyVotes";
+import { MatterFilters } from "@/components/MatterFilters";
+import { parseWardView, WardViewTabs } from "@/components/WardViewTabs";
 import { linkedProjects, ZoningActionList } from "@/components/ZoningActionList";
 import { ProjectFilters } from "@/components/ProjectFilters";
 import { ProjectList } from "@/components/ProjectList";
 import { SignedUnits } from "@/components/SignedNumber";
 import { StatTiles } from "@/components/StatTiles";
 import { WindowControls } from "@/components/WindowControls";
-import { selectActions, wardFlagsWithDerived } from "@/lib/actions";
+import { filterActions, parseDirectionFilter, parseStageFilter, selectActions, wardActionStats, wardFlagsWithDerived } from "@/lib/actions";
 import { getSnapshot } from "@/lib/data";
 import { todayInChicago } from "@/lib/dates";
 import { formatDate, formatInt, isProjectKind } from "@/lib/format";
@@ -99,14 +102,22 @@ async function WardDetail({ params, searchParams }: { params: Params; searchPara
   const kind = isProjectKind(kindParam) ? kindParam : undefined;
   const countedParam = firstValue(sp, "counted");
   const counted = parseCounted(countedParam);
-  const extra = { kind, counted: counted === "all" ? undefined : counted };
+  const view = parseWardView(firstValue(sp, "view"));
+  const stageFilter = parseStageFilter(firstValue(sp, "stage"));
+  const directionFilter = parseDirectionFilter(firstValue(sp, "direction"));
+  const extra =
+    view === "matters"
+      ? { view: "matters", stage: stageFilter === "all" ? undefined : stageFilter, direction: directionFilter === "all" ? undefined : directionFilter }
+      : { kind, counted: counted === "all" ? undefined : counted };
 
   const wardRow = snapshot.wards.find((w) => w.ward === ward);
   const inWindow = projectsInWindow(snapshot.projects, window, opts).filter((p) => p.ward === ward);
   const stats = wardStats(ward, wardRow?.units_2020 ?? null, inWindow);
   const tenures = tenuresOverlapping(snapshot.tenures, ward, window);
   const flags = wardFlagsWithDerived(snapshot).filter((f) => f.ward === ward);
-  const actions = selectActions(snapshot, window, ward);
+  const allActions = selectActions(snapshot, window, ward);
+  const actions = filterActions(allActions, stageFilter, directionFilter);
+  const actionStats = wardActionStats(snapshot, window, ward, opts);
   const linked = linkedProjects(snapshot.action_projects, snapshot.projects);
   const votes = snapshot.sponsorships.filter((s) => s.ward === ward);
 
@@ -118,7 +129,7 @@ async function WardDetail({ params, searchParams }: { params: Params; searchPara
   return (
     <div className="flex flex-col gap-6">
       <nav aria-label="Breadcrumb" className="text-sm">
-        <Link href={buildHref("/", state)} className="text-zinc-600 underline underline-offset-2 dark:text-zinc-400">
+        <Link href={buildHref(view === "matters" ? "/actions" : "/", { ...state, sort: view === "matters" ? "approved_rate" : state.sort, defaultSort: view === "matters" ? "approved_rate" : state.defaultSort })} className="text-zinc-600 underline underline-offset-2 dark:text-zinc-400">
           ← Rankings
         </Link>
       </nav>
@@ -166,8 +177,44 @@ async function WardDetail({ params, searchParams }: { params: Params; searchPara
         <FlagList flags={flags} withSource />
       </header>
 
-      <WindowControls path={path} state={state} today={today} windowStart={snapshot.window_start} extra={extra} />
+      <WardViewTabs ward={ward} view={view} state={state} />
 
+      <WindowControls path={path} state={state} today={today} windowStart={snapshot.window_start} extra={extra} subject={view === "matters" ? "Council actions dated" : "Permits issued"} />
+
+      {view === "matters" ? (
+        <>
+          {actionStats ? <ActionStatTiles stats={actionStats} /> : null}
+          <section className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <h2 className="text-lg font-semibold">
+                Matters <span className="font-normal text-zinc-500 dark:text-zinc-400">({formatInt(actions.length)}{actions.length !== allActions.length ? ` of ${formatInt(allActions.length)}` : ""})</span>
+              </h2>
+              <MatterFilters path={path} state={state} stage={stageFilter} direction={directionFilter} />
+            </div>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Every rezoning and planned development in this ward in the period, from the City Clerk&apos;s record, newest first. A passed one is the
+              alder&apos;s yes. Settled matters are dated by their decision, pending ones by their filing; pending and rejected matters are in gray and
+              are not counted as approved.{" "}
+              <Link href="/methodology#alder-actions" className="underline underline-offset-2">
+                How these are read
+              </Link>
+              .
+            </p>
+            <ZoningActionList actions={actions} linked={linked} tenures={snapshot.tenures} />
+          </section>
+          {snapshot.key_ordinances.length ? (
+            <section className="flex flex-col gap-3">
+              <h2 className="text-lg font-semibold">Key housing votes</h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Citywide housing ordinances from a short list, with this ward&apos;s alder&apos;s part in each. Council votes on these pass by wide margins,
+                so sponsorship is the signal.
+              </p>
+              <KeyVotes ordinances={snapshot.key_ordinances} sponsorships={votes} />
+            </section>
+          ) : null}
+        </>
+      ) : (
+        <>
       <StatTiles stats={stats} />
 
       <section className="flex flex-col gap-3">
@@ -197,33 +244,8 @@ async function WardDetail({ params, searchParams }: { params: Params; searchPara
           <ProjectList projects={listed} />
         )}
       </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 className="text-lg font-semibold">
-            Zoning actions <span className="font-normal text-zinc-500 dark:text-zinc-400">({formatInt(actions.length)})</span>
-          </h2>
-          <Link href="/methodology#alder-actions" className="text-sm text-zinc-500 underline underline-offset-2 dark:text-zinc-400">
-            How these are read
-          </Link>
-        </div>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Every rezoning and planned development in this ward in the period, from the City Clerk&apos;s record. A passed one is the alder&apos;s yes.
-          Settled matters are dated by their final action, pending ones by their filing.
-        </p>
-        <ZoningActionList actions={actions} linked={linked} />
-      </section>
-
-      {snapshot.key_ordinances.length ? (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold">Key housing votes</h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Citywide housing ordinances from a short list, with this ward&apos;s alder&apos;s part in each. Council votes on these pass by wide margins, so
-            sponsorship is the signal.
-          </p>
-          <KeyVotes ordinances={snapshot.key_ordinances} sponsorships={votes} />
-        </section>
-      ) : null}
+        </>
+      )}
     </div>
   );
 }

@@ -252,6 +252,20 @@ export interface ZoningAction {
   /** A scanned exhibit still waits for OCR, so the unit count may be a capacity figure for now. */
   exhibits_pending: boolean;
   notes: string[];
+  /** The record's PDFs: the ordinance as filed and as passed, the statements or narrative. */
+  documents: ActionDocument[];
+  /** The council history: Referred, Recommended to Pass, Passed, Substituted... with dates, oldest first. */
+  history: ActionEvent[];
+}
+
+export interface ActionDocument {
+  label: string;
+  url: string;
+}
+
+export interface ActionEvent {
+  date: string;
+  name: string;
 }
 
 /** A passed action linked to a permit project it enabled. */

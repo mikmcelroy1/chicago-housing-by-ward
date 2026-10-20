@@ -93,6 +93,34 @@ export function homesRequested(a: ZoningAction): number {
 
 const settled = (a: ZoningAction) => a.stage !== "undecided";
 
+export type StageFilter = "all" | "passed" | "undecided" | "stalled" | "rejected";
+export type DirectionFilter = "all" | "up" | "down" | "pd" | "other";
+export const STAGE_FILTERS: readonly StageFilter[] = ["all", "passed", "undecided", "stalled", "rejected"];
+export const DIRECTION_FILTERS: readonly DirectionFilter[] = ["all", "up", "down", "pd", "other"];
+
+export function parseStageFilter(value: string | undefined): StageFilter {
+  return (STAGE_FILTERS as readonly string[]).includes(value ?? "") ? (value as StageFilter) : "all";
+}
+export function parseDirectionFilter(value: string | undefined): DirectionFilter {
+  return (DIRECTION_FILTERS as readonly string[]).includes(value ?? "") ? (value as DirectionFilter) : "all";
+}
+
+/** The Matters view's filters: a stage, and a kind of change (planned developments cover amendments too). */
+export function filterActions(actions: readonly ZoningAction[], stage: StageFilter, direction: DirectionFilter): ZoningAction[] {
+  return actions.filter((a) => {
+    if (stage !== "all" && a.stage !== stage) return false;
+    if (direction === "up" || direction === "down") return a.direction === direction;
+    if (direction === "pd") return a.direction === "pd" || a.direction === "pd_amend";
+    if (direction === "other") return a.direction === "lateral" || a.direction === "unknown";
+    return true;
+  });
+}
+
+/** One ward's row of the Matters ranking's numbers (the adjusted rate needs every ward, so all are computed). */
+export function wardActionStats(snapshot: Snapshot, window: DateWindow, ward: number, opts: RankOptions = {}): WardActionStats | undefined {
+  return computeWardActionStats(snapshot, window, opts).find((s) => s.ward === ward);
+}
+
 /** Actions of a ward in the period, newest first: the list the ward page shows. */
 export function selectActions(snapshot: Snapshot, window: DateWindow, ward?: number): ZoningAction[] {
   return snapshot.actions

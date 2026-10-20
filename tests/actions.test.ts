@@ -22,7 +22,7 @@ function action(o: Partial<ZoningAction> & { ward: number | null; stage: ZoningA
     sponsor_ward: null, sponsor_name: null, sponsored_by_alder: false, ward_source: "parcel", alder_tenure_id: o.ward ? `w${String(o.ward).padStart(2, "0")}-2023` : null,
     addresses: [], address: "1 W MAIN ST", pins: [], app_no: null, type1: false, from_districts: ["RS-3"], from_district: "RS-3", to_district: "RT-4", from_far: 0.9, to_far: 1.2,
     direction: "up", requested_units: null, approved_units: null, units_source: "none", lot_sf: null, allowed_before: null, allowed_after: null,
-    days_pending: null, substitute: false, days_to_passage: null, needs_review: false, exhibits_pending: false, notes: [], ...o,
+    days_pending: null, substitute: false, days_to_passage: null, needs_review: false, exhibits_pending: false, notes: [], documents: [], history: [], ...o,
   };
 }
 function project(o: Partial<Project> & { ward: number; units_delta: number; first_issue_date: string }): Project {

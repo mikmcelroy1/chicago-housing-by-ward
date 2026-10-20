@@ -150,7 +150,7 @@ export function ActionsTable({ rows, state, path = "/actions" }: { rows: ActionR
         </thead>
         <tbody>
           {rows.map((row) => {
-            const wardHref = buildHref(`/ward/${row.ward}`, { from: state.from, to: state.to, sort: "rate", dir: "desc", completed: state.completed });
+            const wardHref = buildHref(`/ward/${row.ward}`, { from: state.from, to: state.to, sort: "rate", dir: "desc", completed: state.completed }, { view: "matters" });
             return (
               <tr key={row.ward} className="border-b border-zinc-200 dark:border-zinc-800">
                 <td className={tdNum}>
