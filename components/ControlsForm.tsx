@@ -11,6 +11,7 @@ interface Props {
   /** The sort the page opens on, left out of the URL. */
   defaultSort: string;
   dir: SortDir;
+  /** Kept in the URL when set; the toggle itself is gone from the form (see docs/METHODOLOGY.md, "The rank"). */
   completed: boolean;
   customActive: boolean;
   extra: Record<string, string | undefined>;
@@ -27,7 +28,7 @@ const chip = (active: boolean) =>
       : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
   }`;
 
-/** GET form for the time period and the completed-only toggle. Works without JavaScript via the Apply button. */
+/** GET form for the time period. Works without JavaScript via the Apply button. */
 export function ControlsForm({ path, from, to, sort, defaultSort, dir, completed, customActive, extra, presets }: Props) {
   const [customOpen, setCustomOpen] = useState(customActive);
   return (
@@ -35,6 +36,7 @@ export function ControlsForm({ path, from, to, sort, defaultSort, dir, completed
       {sort !== defaultSort ? <input type="hidden" name="sort" value={sort} /> : null}
       {dir === "asc" ? <input type="hidden" name="dir" value="asc" /> : null}
       {Object.entries(extra).map(([k, v]) => (v ? <input key={k} type="hidden" name={k} value={v} /> : null))}
+      {completed ? <input type="hidden" name="completed" value="1" /> : null}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="text-sm text-zinc-600 dark:text-zinc-400">Time period</span>
@@ -48,17 +50,6 @@ export function ControlsForm({ path, from, to, sort, defaultSort, dir, completed
         >
           Custom
         </button>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="completed"
-            value="1"
-            defaultChecked={completed}
-            onChange={(e) => e.currentTarget.form?.requestSubmit()}
-            className="h-4 w-4 accent-zinc-900 dark:accent-zinc-100"
-          />
-          Completed permits only
-        </label>
       </div>
 
       {customOpen ? (

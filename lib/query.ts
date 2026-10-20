@@ -59,19 +59,19 @@ export function detectPreset(window: DateWindow, today: string, windowStart: str
 }
 
 export interface ParseOptions<K extends string> {
-  /** The period a page opens on when the URL names none; the permits tab opens on the last 12 months. */
+  /** The period a page opens on when the URL names none: the current council term unless a page says otherwise. */
   defaultPreset?: Exclude<Preset, "custom">;
   /** The page's sortable columns and the one it opens on; the permits tab's are the ranking's SORT_KEYS and "rate". */
   sortKeys?: readonly K[];
   defaultSort?: K;
 }
 
-/** Parse defensively: a missing or malformed window falls back to the page's default period, a bad sort to its default sort. */
+/** Parse defensively: a missing or malformed window falls back to the current council term (or the page's own default), a bad sort to its default sort. */
 export function parseQuery<K extends string = SortKey>(sp: SearchParams, today: string, windowStart: string, opts: ParseOptions<K> = {}): QueryState<K> {
   const from = firstValue(sp, "from");
   const to = firstValue(sp, "to");
   const window: DateWindow =
-    isIsoDate(from) && isIsoDate(to) && from <= to ? { from, to } : presetWindow(opts.defaultPreset ?? "last12", today, windowStart);
+    isIsoDate(from) && isIsoDate(to) && from <= to ? { from, to } : presetWindow(opts.defaultPreset ?? "term", today, windowStart);
   const keys: readonly string[] = opts.sortKeys ?? SORT_KEYS;
   const fallback = (opts.defaultSort ?? "rate") as K;
   const sortRaw = firstValue(sp, "sort") ?? (firstValue(sp, "rank") === "net" ? "net" : undefined);

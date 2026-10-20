@@ -229,13 +229,14 @@ test("presets and query parsing", () => {
   assert.equal(sorted.sort, "gross");
   assert.equal(sorted.dir, "asc");
 
-  // bad dates fall back to the default window; bad sort falls back to rate
+  // bad dates fall back to the default window, the current term; bad sort falls back to rate
   const bad = parseQuery({ from: "2026-02-30", to: "nope", sort: "bogus", dir: "sideways" }, today, start);
-  assert.deepEqual(bad, { from: "2025-10-09", to: today, preset: "last12", sort: "rate", dir: "desc", completed: false });
+  assert.deepEqual(bad, { from: start, to: today, preset: "term", sort: "rate", dir: "desc", completed: false });
+  assert.equal(parseQuery({}, today, start, { defaultPreset: "last12" }).preset, "last12");
   assert.deepEqual(nextSort({ sort: "rate", dir: "desc" }, "rate"), { sort: "rate", dir: "asc" });
   assert.deepEqual(nextSort({ sort: "rate", dir: "asc" }, "net"), { sort: "net", dir: "desc" });
   const reversed = parseQuery({ from: "2026-03-01", to: "2026-02-01" }, today, start);
-  assert.equal(reversed.preset, "last12");
+  assert.equal(reversed.preset, "term");
   const arr = parseQuery({ from: ["2026-01-01", "x"], to: today }, today, start);
   assert.equal(arr.preset, "ytd");
 

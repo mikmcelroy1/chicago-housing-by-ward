@@ -32,8 +32,7 @@ async function Actions({ searchParams }: { searchParams: Promise<SearchParams> }
   await connection(); // "today" comes from the clock, so this must render at request time
   const [sp, snapshot] = await Promise.all([searchParams, getSnapshot()]);
   const today = todayInChicago();
-  // A year holds too few settled applications per ward, so this tab opens on the current council term.
-  const state = parseQuery<ActionSortKey>(sp, today, snapshot.window_start, { defaultPreset: "term", sortKeys: ACTION_SORT_KEYS, defaultSort: DEFAULT_ACTION_SORT });
+  const state = parseQuery<ActionSortKey>(sp, today, snapshot.window_start, { sortKeys: ACTION_SORT_KEYS, defaultSort: DEFAULT_ACTION_SORT });
   const window = { from: state.from, to: state.to };
   const opts = { completedOnly: state.completed };
 

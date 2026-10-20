@@ -86,7 +86,7 @@ The existing-unit denominator is built from Cook County Assessor parcels: single
 
 A ward with fewer than three projects in the window carries a low-sample marker. Its rank still computes.
 
-The "completed only" toggle restricts the count to projects whose primary permit the city has marked COMPLETE. A demolition completes in weeks; a new building takes one to three years. In any recent window this view therefore keeps most losses and drops most gains, and ranks look much worse than they are. It is only informative for windows that ended a few years ago.
+Every page opens on the current council term, from May 15, 2023 to today; the other periods are a click away. A `completed=1` parameter in the address restricts the count to projects whose primary permit the city has marked COMPLETE; it has no control on the page because it misleads: a demolition completes in weeks and a new building takes one to three years, so in any recent window it keeps most losses and drops most gains.
 
 The dollar figure on each project is the estimated construction cost the applicant reported on the permit. It is not the permit fee. Applicants have reason to report low, so treat it as a floor.
 
