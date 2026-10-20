@@ -2,8 +2,8 @@
  * Reading the scanned exhibits: a planned development's "Statements and Plans" (its bulk table carries the
  * Maximum Dwelling Unit Count) and a Type 1 rezoning's "Narrative and Plans". The City Clerk's copies are images
  * with no text layer, so each is downloaded, rendered page by page with pdftoppm and read with tesseract until
- * the dwelling-unit line has been seen (plus one page), or MAX_PAGES. A PDF that does have a text layer is read
- * with pdftotext instead.
+ * the dwelling-unit line has been seen (plus one page), or MAX_PAGES; a longer exhibit with no count yet is
+ * continued for another MAX_PAGES on the next run. A PDF that does have a text layer is read with pdftotext instead.
  *
  * Results persist in zoning_attachment_texts (a file under data/cache for dry runs) so a nightly run only reads
  * new attachments; the backfill is a one-time local run with a high --ocr-limit. Transient failures (network,
@@ -27,7 +27,7 @@ const TEXT_LAYER_CHARS = 120;
  * Count" line (its use list says "Dwelling Units located above the ground floor" pages earlier) or a narrative's
  * "30 dwelling units" / "Dwelling Units: 30". The table may wrap, hence the extra page.
  */
-export const STOP_RE = /Maximum\s+(?:Number\s+of\s+|No\.?\s+of\s+)?(?:Residential\s+)?Dwelling\s+Units?|\b\d{1,4}\s+(?:residential\s+|new\s+|total\s+)?dwelling\s+units?\b|dwelling\s+units?\s*(?:proposed|total)?\s*[:=]\s*\d|\(\s*\d{1,3}\s*\)\s+dwelling\s+units?|no\s+(?:residential\s+)?dwelling\s+units/i;
+export const STOP_RE = /Max(?:imum|\.)?\s+(?:Number\s+of\s+|No\.?\s+of\s+|Permitted\s+)?(?:Residential\s+)?Dwelling(?:\s+Uni[tl]s?)?\s*(?:\([^)\n]{0,40}\))?\s*[:;]?\s*(?:\(?[\d,]{1,7}|N\/A|None)|\b\d{1,4}\s+(?:residential\s+|new\s+|total\s+)?dwelling\s+units?\b|dwelling\s+units?\s*(?:proposed|total)?\s*[:=]\s*\d|\(\s*\d{1,3}\s*\)\s+dwelling\s+units?|no\s+(?:residential\s+)?dwelling\s+units/i;
 
 /** A read that stopped before the end without seeing a count is continued from the next page on the next run. */
 export function incomplete(t: ExhibitText): boolean {
@@ -75,15 +75,16 @@ export async function ocrTools(): Promise<OcrTools> {
 }
 
 async function download(url: string, dest: string): Promise<"ok" | "not_pdf" | "transient"> {
-  let res: Response;
+  // The timeout covers the body too: a slow download of a large scan is transient, not fatal.
+  let bytes: Buffer;
   try {
-    res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+    if (res.status === 404 || res.status === 410) return "not_pdf";
+    if (!res.ok) return "transient";
+    bytes = Buffer.from(await res.arrayBuffer());
   } catch {
     return "transient";
   }
-  if (res.status === 404 || res.status === 410) return "not_pdf";
-  if (!res.ok) return "transient";
-  const bytes = Buffer.from(await res.arrayBuffer());
   if (bytes.length < 5 || bytes.subarray(0, 5).toString("latin1") !== "%PDF-") return "not_pdf";
   writeFileSync(dest, bytes);
   return "ok";
@@ -141,7 +142,9 @@ export async function readExhibit(att: { source_url: string; file_name: string |
     if (got === "not_pdf") return done("", 0, null, "ocr");
     const total = await pageCount(pdf);
     if (total === null) return done("", 0, null, "ocr");
-    const maxPages = Math.min(opts.maxPages ?? MAX_PAGES, total);
+    // A resumed read continues for another MAX_PAGES; a first read stops at MAX_PAGES.
+    const start = opts.resume?.pages_read ?? 0;
+    const maxPages = Math.min(start + (opts.maxPages ?? MAX_PAGES), total);
     // A text layer? Try the first pages with pdftotext.
     const probe = await pdftotext(pdf, 1, Math.min(4, total)).catch(() => "");
     if (probe.replace(/\s+/g, "").length >= TEXT_LAYER_CHARS * Math.min(4, total)) {
@@ -150,7 +153,7 @@ export async function readExhibit(att: { source_url: string; file_name: string |
     }
     let text = opts.resume?.text ?? "";
     let seenAt: number | null = null;
-    let read = opts.resume?.pages_read ?? 0;
+    let read = start;
     for (let p = read + 1; p <= maxPages; p++) {
       try {
         const page = await ocrPage(pdf, p, base);

@@ -109,39 +109,112 @@ export function displayDistrict(d: District): string {
 
 /**
  * Letters OCR misreads inside district codes: "CI-I" is C1-1, "Bi-3" is B1-3, "M l - I" is M1-1, "DX-l6" is DX-16,
- * "RT-3,5" is RT-3.5, "B3-] .5" is B3-1.5, "RSI" is RS-1, "RMS" is RM-5, "RTS.5" is RT-3.5.
+ * "RT-3,5" is RT-3.5, "B3-] .5" is B3-1.5, "RSI" is RS-1, "RMS" is RM-5, "RTS.5" is RT-3.5, "B!-2" is B1-2, "RM-S" is
+ * RM-5 (so is "RM-S5", the 5 read twice), "RS-8" is RS-3, "B38-2" is B3-2, "Blrl" is B1-1, "RSS" is RS-3, "Rt-4" is RT-4. An article
+ * glued to the code ("aB2-3", "theRM-5") and a name glued to it ("Bl-lNeighborhood") are split; an em dash, a doubled
+ * dash or a stray mark after the dash ("B3 — 2", "M1--2", "C2-]1", "RS-^2", "DX-.5", "C2'-2") is a plain dash.
  */
 function fixOcrCodes(s: string): string {
-  const digit = (c: string) => c.replace(/[Il|i\]]/g, "1").replace(/[Oo]/g, "0");
+  const digit = (c: string) => c.replace(/[Il|i\]!]/g, "1").replace(/[Oo]/g, "0");
   return s
-    .replace(/\b([BCM])\s?([Il|il1-3])\s?[-–]\s?([Il|il\]1-9])(\s?\.\d)?(?![\w.])/g, (_m, a: string, b: string, c: string, d?: string) => `${a}${digit(b)}-${digit(c)}${(d ?? "").replace(/\s/g, "")}`)
+    .replace(/\b(a|an|the|ofthe|ofa)(?=(?:RS|RT|RM|B[123]|C[123]|D[XRCS]|M[123])[-–—]?[\d!])/g, "$1 ")
+    .replace(/\b((?:RS|RT|RM|B[123]|C[123]|D[XRCS]|M[123]))['’]?\s*[-–—]{1,2}\s*[\]^.';]?(?=[\d!])/g, "$1-")
+    .replace(/\b([BCM])\s?([Il|il!1-3])\s?[-–]\s?([Il|il\]!1-9])(\s?\.\d)?(?![\d.a-z])/g, (_m, a: string, b: string, c: string, d?: string) => `${a}${digit(b)}-${digit(c)}${(d ?? "").replace(/\s/g, "")}`)
+    .replace(/\b((?:RS|RT|RM|B[123]|C[123]|D[XRCS]|M[123])-\d{1,2}(?:\.\d)?)(?=[A-Z][a-z])/g, "$1 ")
     .replace(/\b((?:RS|RT|RM|D[XRCS]|POS)\s?[-–]\s?)([Il|il])(\d?)\b/g, (_m, a: string, b: string, c: string) => `${a}${digit(b)}${c}`)
     .replace(/\bN4([123])(\s*[-–]\s*\d)(?=[^\n]{0,60}(?:Manufactur|Industr))/g, "M$1$2")
     .replace(/\bFI([123])(\s*[-–]\s*\d)(?=[^\n]{0,60}(?:Neighborhood|Community|Shopping|Mixed))/g, "B$1$2")
     .replace(/\bRS\s?[-–]?\s?[Il|il]\b/g, "RS-1")
+    .replace(/\bRSS\b/g, "RS-3")
+    .replace(/\bRS-8\b/g, "RS-3")
+    .replace(/\bR\$-/g, "RS-")
     .replace(/\bRMS\b/g, "RM-5")
-    .replace(/\bRTS\.5\b/g, "RT-3.5")
+    .replace(/\bRM-S5?\b/g, "RM-5")
+    .replace(/\bRTS\s?\.5\b/g, "RT-3.5")
+    .replace(/\bRt-?(\d)/g, "RT-$1")
+    .replace(/\b([BC][123])8\s*[-–—]\s*(\d)/g, "$1-$2")
+    .replace(/\bB[lI1]r[lI1]\b/g, "B1-1")
     .replace(/\b((?:RS|RT|RM|B\d|C\d|D[XRCS]|M\d)\s*[-–]\s*\d)[,](\d)\b/g, "$1.$2");
 }
 
 /** Dash numbers no district has, as OCR and typists produce them, mapped to the district meant. */
 const CANON: Record<string, [string, number]> = { "RT-4.5": ["RM", 4.5], "RM-4": ["RM", 4.5], "RT-3": ["RT", 3.5], "RM-3.5": ["RT", 3.5], "RS-3.5": ["RT", 3.5], "RT-5": ["RM", 5] };
 
-const PD_RE = /((?:Residential|Business|Institutional|Industrial|Waterway|Commercial|Transportation|Mixed[- ]Use)(?:\s*[-\/]\s*(?:Residential|Business|Institutional|Industrial|Commercial))?)?\s*(?:Planned\s+Develop\w*|P\.?D\.?)(?:\s*(?:No\.?|Number|#)\s*)?\s*(\d{1,4})?/gi;
-const CODE_RE = /\b(RS|RT|RM|B[123]|C[123]|D[XRCS]|M[123]|POS)\s*[-–]?\s*(\d{1,2}(?:\.\d)?)\s*(A)?\b/g;
-const PMD_RE = /\bPMD\s*(?:No\.?\s*)?(\d{1,2})?/g;
-const T_RE = /\bT,?\s+Transportation\s+District/g;
+/** The kinds a planned development's name carries: "Residential-Business Planned Development No. 1230". */
+const PD_KIND = String.raw`(?:Residential|Business|Institutional|Industrial|Manufacturing|Waterway|Commercial|Transportation|Community|Mixed[- ]Use)`;
+/** A planned development as the scans spell it: "Plaimed Development", "Planned Devclopment Number 776", "P.D. 1230", "Planned #889". */
+const PD_RE = new RegExp(String.raw`(${PD_KIND}(?:\s*[-\/]?\s*${PD_KIND})*)?\s*(?:P[lIi]a[\w']{1,6}\s*Dev[a-z]*|P\.?D\.?|Planned(?=\s*(?:No\.?|Number|#)\s*\d))[*']?(?:\s*(?:N[oQ0]\.?|Number|#)\s*)?\s*(\d{1,4})?`, "gi");
+const CODE_RE = /\b(RS|RT|RM|B[123]|C[123]|D[XRCS]|M[123]|POS)\s*[-–—]?\s*(\d{1,2}(?:\.\d)?)\s*(A)?\b/g;
+/** "PMD 4", "Planned Manufacturing District No. 11", and "RMD 2" as a scanner writes PMD. */
+const PMD_RE = /\b(?:PMD|RMD|Planned\s+Manufacturing\s+District)\s*(?:No\.?|Number|#)?\s*[-–]?\s*(\d{1,2})?/gi;
+const T_RE = /\bT\s*[-,;]?\s*Transp\w*\s+District/g;
+
+/**
+ * District families by the name the ordinance spells out, for a code the scanner garbled beyond repair ("83-1
+ * Community Shopping District" is B3-1, "R'r-4 Residential Two-Flat, Townhouse and Multi-Unit District" is RT-4).
+ * The dash number is still read from the text before the name; a name with no number is no district.
+ */
+const NAMED: [RegExp, string][] = [
+  [/Residential\s+Single[-\s]?(?:Unit|Family)|Detached\s+Hous/gi, "RS"],
+  [/Residential\s+Tw\w{0,2}[-\s]?Flat|Townhouse/gi, "RT"],
+  [/Residential\s+Mu\w{1,3}[-\s]?Unit/gi, "RM"],
+  [/Neighborhood\s+Shopping/gi, "B1"],
+  [/Neighborhood\s+Mixed[-\s]{0,2}U\s?se/gi, "B2"],
+  [/Community\s+Shopping/gi, "B3"],
+  [/Neighborhood\s+(?:Related\s+)?Commercial/gi, "C1"],
+  [/Motor\s+Vehicle/gi, "C2"],
+  [/Commercial,?\s+Manufacturing,?\s+and\s+Employment/gi, "C3"],
+  [/Limited\s+Manufacturing|Business\s+Park/gi, "M1"],
+  [/Light\s+Industry/gi, "M2"],
+  [/Heavy\s+Industry/gi, "M3"],
+  [/Downtown\s+Core/gi, "DC"],
+  [/Downtown\s+Mixed/gi, "DX"],
+  [/Downtown\s+Residential/gi, "DR"],
+  [/Downtown\s+Service/gi, "DS"],
+];
+
+function namedDistricts(text: string, found: { index: number; d: District }[]): { index: number; d: District }[] {
+  const out: { index: number; d: District }[] = [];
+  const near = (list: { index: number }[], at: number) => list.some((f) => f.index <= at && at - f.index < 45);
+  // A capital I, an l, a bar or a bang after the dash is a 1; a lowercase i is not read (a scan once wrote "ti'2-i" for B2-3).
+  const digit = (c: string) => c.replace(/[Il|\]!L]/g, "1").replace(/[Oo]/g, "0");
+  for (const [re, sub] of NAMED) {
+    for (const m of text.matchAll(re)) {
+      const at = m.index!;
+      if (near(found, at) || near(out, at)) continue;
+      const window = text.slice(Math.max(0, at - 30), at);
+      // The number is the last "-3", "- L", "-]1" or "-1.5" before the name, else the last bare digit ("332 Community").
+      let num: string | null = null;
+      let end = -1;
+      // A bare digit right after B, C or M is the family's own digit ("B1, Neighborhood Shopping" has no dash number).
+      for (const n of window.matchAll(/[-–—]\s?[\]^.';]?([\dIl|!LO])(?:\s?[.,]\s?(\d))?|(?<![BCM])(\d)(?:[.,](\d))?/g)) {
+        const e = n.index! + n[0].length;
+        if (e < end) continue;
+        end = e;
+        num = n[1] !== undefined ? `${digit(n[1])}${n[2] ? `.${n[2]}` : ""}` : `${n[3]}${n[4] ? `.${n[4]}` : ""}`;
+      }
+      if (num === null) continue;
+      let s = sub;
+      let dash = Number(num);
+      const canon = CANON[`${s}-${dash}`];
+      if (canon) [s, dash] = canon;
+      const family: DistrictFamily = s.startsWith("R") ? (s as DistrictFamily) : s.startsWith("B") ? "B" : s.startsWith("C") ? "C" : s.startsWith("D") ? "D" : "M";
+      out.push({ index: at, d: { family, sub: s, dash, suffixA: false, pdNumber: null, pdKind: null, amended: false } });
+    }
+  }
+  return out;
+}
 
 /** Every district named in a chunk of ordinance text, in the order named. */
 export function parseDistricts(chunk: string): District[] {
   const text = fixOcrCodes(stripOcrMarks(chunk));
   const found: { index: number; d: District }[] = [];
   for (const m of text.matchAll(PD_RE)) {
-    if (/P\.?D\.?/i.test(m[0]) && !/Planned/i.test(m[0]) && !m[2]) continue; // a bare "PD" with no number is not a district
+    if (/P\.?D\.?/i.test(m[0]) && !/P[lIi]a/i.test(m[0]) && !m[2]) continue; // a bare "PD" with no number is not a district
     const after = text.slice(m.index! + m[0].length, m.index! + m[0].length + 40);
     found.push({
       index: m.index!,
-      d: { family: "PD", sub: "PD", dash: null, suffixA: false, pdNumber: m[2] ? Number(m[2]) : null, pdKind: m[1] ? m[1].replace(/\s*[-\/]\s*/g, "-") : null, amended: /as\s+amended/i.test(after) },
+      d: { family: "PD", sub: "PD", dash: null, suffixA: false, pdNumber: m[2] ? Number(m[2]) : null, pdKind: m[1] ? m[1].replace(/\s*[-\/]\s*|\s+/g, "-") : null, amended: /a\.?s\s*amend/i.test(after) },
     });
   }
   for (const m of text.matchAll(CODE_RE)) {
@@ -158,12 +231,18 @@ export function parseDistricts(chunk: string): District[] {
   for (const m of text.matchAll(T_RE)) {
     found.push({ index: m.index!, d: { family: "T", sub: "T", dash: null, suffixA: false, pdNumber: null, pdKind: null, amended: false } });
   }
+  found.push(...namedDistricts(text, found));
   found.sort((a, b) => a.index - b.index);
   const out: District[] = [];
-  for (const { d } of found) {
+  let prevIndex = -1;
+  for (const { index, d } of found) {
     const prev = out[out.length - 1];
     if (prev && displayDistrict(prev) === displayDistrict(d)) continue;
+    // "PD 1302, Planned Development District" and "PMD 6 (Planned Manufacturing District)" name one district, not two.
+    if (prev && d.family === "PD" && d.pdNumber === null && prev.family === "PD" && prev.pdNumber !== null && index - prevIndex < 45) continue;
+    if (prev && d.family === "PMD" && d.dash === null && prev.family === "PMD" && prev.dash !== null && index - prevIndex < 60) continue;
     out.push(d);
+    prevIndex = index;
   }
   return out;
 }
@@ -193,11 +272,17 @@ function compareAll(from: District[], to: District, measure: (d: District) => nu
   return "lateral"; // more homes than one of the districts and fewer than another: an assemblage straddling two districts
 }
 
+/** Kinds of planned development that allow no homes; a residential or mixed-use one allows some, how many the ordinance does not say. */
+const PD_NO_HOMES = /^(?:Business|Institutional|Industrial|Manufacturing|Waterway|Commercial|Transportation)(?:-(?:Business|Institutional|Industrial|Manufacturing|Waterway|Commercial|Transportation))*$/i;
+
 /**
  * What the change does to housing. A new planned development is `pd`; an amendment of one is `pd_amend`. Otherwise
  * the districts are compared on how many homes they allow per square foot of lot, and when that is equal (or
  * neither allows homes) on floor area ratio. A manufacturing or C3 district allows no homes, so leaving one for any
- * residential or mixed district is up.
+ * residential or mixed district is up. Leaving a planned development for a plain district: a business, commercial,
+ * institutional, industrial, manufacturing, waterway or transportation PD allowed no homes, so that is up when the
+ * new district allows homes and lateral when it does not; a residential or mixed-use PD allowed homes, so that is down
+ * when the new district allows none and otherwise unknown; a PD whose kind the ordinance does not name is unknown.
  */
 export function direction(from: District[], to: District | null): ZoningDirection {
   if (!to) return "unknown";
@@ -207,7 +292,14 @@ export function direction(from: District[], to: District | null): ZoningDirectio
     return "pd";
   }
   const plain = from.filter((f) => f.family !== "PD");
-  if (!plain.length) return "unknown";
+  if (!plain.length) {
+    const kinds = from.filter((f) => f.family === "PD").map((f) => f.pdKind);
+    const toHomes = allowsHousing(to);
+    if (!kinds.length || toHomes === null || kinds.some((k) => k === null)) return "unknown";
+    if (kinds.every((k) => PD_NO_HOMES.test(k!))) return toHomes ? "up" : "lateral";
+    if (kinds.every((k) => /Residential|Mixed/i.test(k!))) return toHomes ? "unknown" : "down";
+    return "unknown";
+  }
   const byDensity = compareAll(plain, to, density);
   if (byDensity === "up" || byDensity === "down") return byDensity;
   const byFar = compareAll(plain, to, districtFar);
@@ -316,6 +408,13 @@ export function stripOcrMarks(text: string): string {
   return text.replace(/[⟦⟧]/g, "");
 }
 
+/** The kind ("Residential-Business") a planned development's number is given anywhere in the record, or null. */
+export function pdKindFromText(text: string, pdNumber: number): string | null {
+  const re = new RegExp(String.raw`(${PD_KIND}(?:[-\s\/]+${PD_KIND})*)\s+Planned\s+Development\s*(?:No\.?|Number|#)?\s*${pdNumber}\b`, "gi");
+  const m = re.exec(stripOcrMarks(text));
+  return m ? m[1].replace(/\s*[-\/]\s*|\s+/g, "-") : null;
+}
+
 export interface OrdinanceSection {
   from: District[];
   to: District | null;
@@ -323,17 +422,31 @@ export interface OrdinanceSection {
   toText: string;
 }
 
-const DISTRICT_START = String.raw`(?:RS|RT|RM|B[123]|C[123]|D[XRCS]|M[123]|POS|PMD|Residential|Business|Institutional|Industrial|Waterway|Commercial|Transportation|Mixed|Planned|[BCM][Il|i])\b`;
-const SECTION_RE = new RegExp(
-  String.raw`changing\s+(?:all\s+)?(?:of\s+)?(?:the\s+)?(?:current\s+|existing\s+)?([\s\S]{2,700}?)\s*,?\s*(?:symbo[lL]s?\b(?:\s+and\s+(?:indica\w*|designations?))?|as\s+shown\s+on)([\s\S]{0,4000}?)\b[TtlI]o\s+(?:(?:t[hl][io0l]\w{1,3}\s+of|the\s+designation\s+of)\s*(?:an?\b|the\b)?\s*|(?:an?\s+|the\s+)(?=${DISTRICT_START}))([\s\S]{2,260}?)(?=\s*(?:,\s*which\b|\bwhich\b|\band\s+a\s+corresponding\b|\bsubject\s+to\b|\bis\s+hereby\b|(?<!\bNos?)\.\s|\n\s*\n|\bSECTION\b|$))`,
-  "gi",
-);
+const DISTRICT_START = String.raw`(?:(?:RS|RT|RM|B[123]|C[123]|D[XRCS]|M[123]|POS|PMD|PD|Residential|Business|Institutional|Industrial|Manufacturing|Waterway|Commercial|Transportation|Mixed|Planned)\b|P[lIi]a[\w']{1,6}\s*Dev|[BCM][Il|i]\b|T\s*[-,;]?\s*Transp)`;
+/** "changing" as the scans spell it ("changmg", "clianging", "changed", "changingall"); a misspelling counts only after "by". */
+const CHANGING = String.raw`(?:changing|(?<=\bby\s{1,3}(?:the\s+)?)c[hli][\w']{1,6}(?:ing|mg|es|ed))(?:all(?:of)?(?:the)?)?\s+`;
+/** Where the from-districts end: "symbols and indications", "designations", "as shown on", ", Map No.". */
+/** After "symbols and indications", another district's symbols: "and all the RS-3", "and Ml-3 Limited". */
+const MORE_FROM = String.raw`\s+and\s+(?:all\b|the\b|of\b|${DISTRICT_START})`;
+const FROM_END = String.raw`\s*,?\s*(?:(?:symbo[lL]s?|s[yi][mn]i?bo[lL]s?)(?:\b|(?=and))(?:\s*and\s+(?:indica\w*|designations?)\b)?(?!${MORE_FROM})(?!\s+and\s+indica\w*${MORE_FROM})|(?:designations?|indications?)\s+(?:as\s+)?(?:s\w{3,6}\s+)?on\s+Map|as\s+i?s\w{3,6}\s+on|,?\s*s\w{3,6}\s+on\s+Map|,\s*Map\s+No)`;
+/** "to those of a" as the scans spell it: "lo those o f a", "t o those", "To tho.se ofa", "tb those bf a", "to that of an", "those of a" with the "to" lost. */
+const TO_THOSE_OF = String.raw`(?:\b(?:[TtlIf]\s?[ob]|l\s?b)\s+|\bto(?=t[hl])|\b(?=[tl][hl]))(?:[tl][hl][il]?[oae]\.?s[ec]\s*|[tl][hl][il]?[oae][\w.]{1,4}\s+)[o06b]\s?[fTtl](?!f)\s*(?:an?\b|the\b)?\s*`;
+const TO_DESIGNATION = String.raw`\b[TtlIf]\s?o\s+the\s+desi\w{3,10}\s+of\s*(?:an?\b|the\b)?\s*`;
+/** "to a B2-3", "to the DC-16", "to Residential Planned Development Number 1135, as amended". */
+const TO_ARTICLE = String.raw`\b[TtlIf]\s?o\s+(?:(?:an?|the)\s+(?=${DISTRICT_START})|(?=${PD_KIND}(?:\s*[-\/]?\s*${PD_KIND})*\s*P[lIi]a[\w']{1,6}\s*Dev))`;
+const TO_END = String.raw`(?=\s*(?:,\s*which\b|\bwhich\b|\band\s+a\s+corresponding\b|\bsubject\s+to\b|\bis\s+hereby\b|(?<!\bNos?)\.\s|\n\s*\n|\bSECTION\b|$)|(?<=\bamended)\s*[,;])`;
+const PD_START = String.raw`${PD_KIND}(?:\s*[-\/]?\s*${PD_KIND})*\s*P[lIi]a[\w']{1,6}\s*Dev`;
+/** The typist dropped "to those of": the new district stands alone on the next line ("North May Street;\na Business Planned Development."), a plain district only after a blank line. */
+const TO_BLANK = String.raw`\n[ \t]*\n\s*(?=(?:RS|RT|RM|B[123]|C[123]|D[XRCS]|M[123])\s?[-–—]\s?\d)|\n\s*(?:(?:an?|the)\s+)?(?=${PD_START})`;
+/** "symbols and indications within the area herein above as Institutional Planned Development Number". */
+const TO_AS = String.raw`\bas\s+(?:(?:an?|the)\s+)?(?=${PD_START})`;
+const TO_CLAUSE = String.raw`(?:${TO_THOSE_OF}|${TO_DESIGNATION}|${TO_ARTICLE}|${TO_BLANK}|${TO_AS})([\s\S]{2,260}?)${TO_END}`;
+/** The boundary description: up to 16,000 characters (a rail corridor's runs that long), never past the next SECTION heading. */
+const MIDDLE = String.raw`(?:(?![\n\f][ \t]*SECTION\s*[\dIVX]+\s*[.:\n](?![ \t]*(?:[Tt]o\s+t[hl]|[Tt]h[oa]se)))[\s\S]){0,16000}?`;
+const SECTION_RE = new RegExp(String.raw`${CHANGING}(?:all\s+)?(?:of\s+)?(?:the\s+)?(?:current\s+|existing\s+)?([\s\S]{2,700}?)${FROM_END}(${MIDDLE})${TO_CLAUSE}`, "gi");
 
 /** "changing all the symbols and indications of Institutional Planned Development Number 1054 as shown on Map ... to those of ..." */
-const SECTION_OF_RE = new RegExp(
-  String.raw`changing\s+all\s+(?:of\s+)?(?:the\s+|t[hl]ie\s+)?symbo[lL]s?\s+and\s+indica\w*\s+of\s+([\s\S]{2,300}?)\s+as\s+shown\s+on([\s\S]{0,4000}?)\b[TtlI]o\s+(?:t[hl][io0l]\w{1,3}\s+of|the\s+designation\s+of)\s*(?:an?\b|the\b)?\s*([\s\S]{2,260}?)(?=\s*(?:,\s*which\b|\bwhich\b|\band\s+a\s+corresponding\b|\bsubject\s+to\b|\bis\s+hereby\b|(?<!\bNos?)\.\s|\n\s*\n|\bSECTION\b|$))`,
-  "gi",
-);
+const SECTION_OF_RE = new RegExp(String.raw`${CHANGING}all\s+(?:of\s+)?(?:the\s+|t[hl]ie\s+)?symbo[lL]s?\s+and\s+indica\w*\s+of\s+([\s\S]{2,300}?)\s+as\s+shown\s+on(${MIDDLE})${TO_CLAUSE}`, "gi");
 
 /** Every "changing all the X ... to those of Y" clause, in order. */
 export function parseSections(text: string): OrdinanceSection[] {
@@ -346,7 +459,9 @@ export function parseSections(text: string): OrdinanceSection[] {
       const fromText = m[1].replace(/\s+/g, " ").trim();
       const toText = m[3].replace(/\s+/g, " ").trim();
       const to = parseDistricts(toText);
-      found.push({ index: m.index!, section: { from: parseDistricts(fromText), to: to[0] ?? null, fromText, toText } });
+      // "to those of a B3-2 Community Shopping District then to Institutional Planned Development 1150, as amended": the last.
+      const pick = /\bthen\s+to\b/i.test(toText) ? to[to.length - 1] : to[0];
+      found.push({ index: m.index!, section: { from: parseDistricts(fromText), to: pick ?? null, fromText, toText } });
     }
   }
   return found.sort((a, b) => a.index - b.index).map((f) => f.section);
@@ -419,25 +534,66 @@ export interface CountReading {
 const toInt = (s: string) => Number(s.replace(/,/g, ""));
 
 /**
- * The "Maximum Dwelling Unit Count" (or "Maximum Number of Dwelling Units") line of a planned development's bulk
- * table. A number right after the label is the total; a table with only subarea lines is summed.
+ * The "Maximum Dwelling Unit Count" line of a planned development's bulk table, in the spellings the scans give it
+ * ("Maximum Number of Dwelling Units", "Maximum Permitted Dwelling Units", "Max. Residential Dwelling Units",
+ * "MAXIMUM NUMBER OF DWELLING 120"). A number right after the label is the total; "N/A" or "None Permitted" is 0; a
+ * table with subarea lines uses its own "Total" line, else the subareas are summed; a table laid out in columns (the
+ * labels in one run, the values in the next) gives the first value after the labels, unless it is an area or a height.
+ * Without a bulk-table line, an explicit statement in the development's own words ("permits the construction of 500
+ * dwelling units", "a 25-story building with 350 residential units", "fifty-six (56) dwelling units") stands in, the
+ * largest when there are several, as the permit rules do.
  */
 export function pdUnitCount(text: string): CountReading {
   const t = stripOcrMarks(text);
-  const label = /Maximum\s+(?:Number\s+of\s+|No\.?\s+of\s+)?(?:Residential\s+)?Dwelling\s+Units?(?:\s+Count)?\s*:?/gi;
-  for (const m of t.matchAll(label)) {
-    const window = t.slice(m.index! + m[0].length, m.index! + m[0].length + 500);
+  const label = /Max(?:imum|\.)?\s+(?:Number\s+of\s+|No\.?\s+of\s+|Permitted\s+)?(?:Residential\s+)?Dwelling(?:\s+Uni[tl][sz]?)?(?:\s+Count)?\s*(?:\([^)\n]{0,40}\))?\s*[:;]?/gi;
+  const labels = [...t.matchAll(label)].map((m) => ({ at: m.index! + m[0].length, start: m.index! }));
+  // A number right after a label, or a subarea table under it, in text order.
+  for (const { at } of labels) {
+    const window = t.slice(at, at + 600);
+    if (/^\s*(?:N\/A|None(?:\s+Permitted)?)\b/i.test(window)) return { units: 0, notes: ["the statements allow no dwelling units"] };
     const direct = /^\s*\(?([\d,]{1,7})\)?\s*\*?/.exec(window);
-    if (direct && toInt(direct[1]) <= 25_000) return { units: toInt(direct[1]), notes: [] };
-    const sub = [...window.matchAll(/Sub-?\s?areas?\s+[A-Z0-9]{1,2}\s*:?\s*\(?([\d,]{1,6})\)?\s*\*?/gi)];
+    // Subarea lines; a decimal ("Subarea A: 1.58") is a floor area ratio, not a count.
+    const sub = [...window.matchAll(/Sub-?\s?areas?\s+['"]?[A-Z0-9]{1,2}['"]?\s*[:=]?\s*\(?([\d,]{1,6})\)?(?!\.\d)\s*(?:\*|units)?/gi)];
+    const stop = window.search(/Maximum\s+(?!Dwelling)|Max\.\s+(?!Dwelling|Residential)|Minimum\s+|Net\s+Site|Retail\s+Area|Open\s+Space/i);
+    const inWindow = sub.filter((s) => stop < 0 || s.index! < stop);
+    if (direct && toInt(direct[1]) <= 25_000) {
+      // A total can never be smaller than one of its subareas: "141" over subareas of 361 and 380 is a 741 the scanner misread.
+      const largest = inWindow.reduce((m, x) => Math.max(m, toInt(x[1])), 0);
+      if (largest > toInt(direct[1])) return { units: inWindow.reduce((s, x) => s + toInt(x[1]), 0), notes: [`the total line reads ${direct[1]}, below its subareas; summed ${inWindow.length} subareas`] };
+      return { units: toInt(direct[1]), notes: [] };
+    }
     if (sub.length) {
-      const stop = window.search(/Maximum\s+(?!Dwelling)|Minimum\s+|Net\s+Site/i);
-      const inWindow = sub.filter((s) => stop < 0 || s.index! < stop);
-      if (inWindow.length) return { units: inWindow.reduce((s, x) => s + toInt(x[1]), 0), notes: [`summed ${inWindow.length} subareas`] };
+      if (inWindow.length) {
+        const total = /\bTotal\s*[:=]?\s*\n?\s*\(?([\d,]{1,6})\)?\s*(?:\*|units)?/i.exec(stop < 0 ? window : window.slice(0, stop));
+        if (total && toInt(total[1]) <= 25_000) return { units: toInt(total[1]), notes: [`the table's total over ${inWindow.length} subareas`] };
+        return { units: inWindow.reduce((s, x) => s + toInt(x[1]), 0), notes: [`summed ${inWindow.length} subareas`] };
+      }
     }
   }
-  const built = /permits\s+the\s+construction\s+of\s+(?:up\s+to\s+)?(?:approximately\s+)?([\d,]{1,6})\s+(?:residential\s+)?dwelling\s+units/i.exec(t);
-  if (built) return { units: toInt(built[1]), notes: ["from the planned development statements' narrative"] };
+  // A table laid out in columns: the labels in one run, the values in the next. Only a label that starts its line is
+  // a table row ("the maximum number of dwelling units allowed within this planned development" mid-sentence is not).
+  for (const { at, start } of labels) {
+    if (!(start === 0 || /\n[ \t]*$/.test(t.slice(Math.max(0, start - 40), start)))) continue;
+    const column = /^(?:[ \t]*[^\d\n]*\n){1,14}[ \t]*\(?([\d,]{1,7})\)?(?![\d,]*\s*(?:\.\d|sq|square|feet|ft\b|'|%|\$|acres?|x\s*\d))/i.exec(t.slice(at, at + 600));
+    if (column && toInt(column[1]) <= 25_000) return { units: toInt(column[1]), notes: ["read from a bulk table laid out in columns"] };
+  }
+  const said = new Set<number>();
+  const add = (s: string) => {
+    const n = toInt(s);
+    if (n <= 25_000) said.add(n);
+  };
+  const DU = String.raw`(?:residential\s+|new\s+|overall\s+)?dwelling\s+units`;
+  for (const m of t.matchAll(new RegExp(String.raw`permits(?:\s+the\s+construction\s+of)?\s+(?:up\s+to\s+)?(?:approximately\s+)?(?:a\s+total\s+of\s+)?(?:[a-z-]+\s+){0,4}?\(?([\d,]{1,6})\)?\s+${DU}`, "gi"))) add(m[1]);
+  for (const m of t.matchAll(new RegExp(String.raw`\b(?:maximum|total)\s+of\s+(?:[a-z-]+\s+){0,5}?\(?([\d,]{1,6})\)?\s+${DU}`, "gi"))) add(m[1]);
+  for (const m of t.matchAll(/\b(?:containing|contain|with|of|including)\s+(?:up\s+to\s+)?(?:approximately\s+)?([\d,]{1,6})\s+(?:overall\s+)?(?:residential\s+|new\s+)?(?:dwelling\s+)?units\b(?!\s+or\s+more)/gi)) add(m[1]);
+  for (const m of t.matchAll(/\b([\d,]{1,6})\s*-?\s*(?:residential\s+)?dwelling[-\s]unit\s+(?:residential\s+|mixed-use\s+)?building/gi)) add(m[1]);
+  for (const m of t.matchAll(/\(\s*(\d{1,5})\s*\)\s+(?:residential\s+|new\s+)?dwelling\s+units/gi)) add(m[1]);
+  for (const m of t.matchAll(new RegExp(String.raw`\bup\s+to\s+(?:[a-z-]+\s+){0,3}?\(?([\d,]{1,6})\)?\s+${DU}`, "gi"))) add(m[1]);
+  if (!said.size && /\b(?:no|zero|0)\s+(?:new\s+|residential\s+)?dwelling\s+units\b/i.test(t)) return { units: 0, notes: ["the statements say no dwelling units"] };
+  if (said.size) {
+    const nums = [...said].sort((a, b) => a - b);
+    return { units: nums[nums.length - 1], notes: ["from the planned development statements' narrative" + (nums.length > 1 ? ` (several unit numbers: ${nums.join(", ")})` : "")] };
+  }
   return { units: null, notes: [] };
 }
 
@@ -461,7 +617,8 @@ export function narrativeUnitCount(text: string, lotSf: number | null = null): C
   const labeled = new Set<number>();
   const found = new Set<number>();
   const d = normalize(t);
-  const densityBefore = (index: number) => /\b(?:PER|AREA|FEET|FT|SF|S\.F\.|MLA)\s*:?\s*$/.test(d.slice(Math.max(0, index - 14), index));
+  // "982 SF PER DWELLING UNIT", "MIN. LOT AREA/DWELLING UNIT: 688": a density standard, not a count.
+  const densityBefore = (index: number) => /\b(?:PER|AREA|FEET|FT|SF|S\.F\.|MLA)\s*[:\/]?\s*$/.test(d.slice(Math.max(0, index - 14), index));
   // A labeled total ("Residential Dwelling Units: 30", "(40 dwelling units proposed)") is the applicant's own figure.
   for (const m of d.matchAll(/(?:NUMBER\s+OF\s+|TOTAL\s+|PROPOSED\s+|RESIDENTIAL\s+)*DWELLING\s+UNITS?\s*(?:PROPOSED|TOTAL)?\s*[:=]\s*(\d{1,4})\b/g)) {
     if (densityBefore(m.index!)) continue;
@@ -620,7 +777,20 @@ export function readMatter(m: MatterInput, today: string, opts: ReadOptions = {}
   // The substitute's wording rules, unless its scan is unreadable where the filing's is not.
   const finalReadable = finalSections.length > 0 && finalSections[finalSections.length - 1].to !== null;
   const sections = finalReadable ? finalSections : firstSections.length ? firstSections : finalSections;
-  const fromDistricts = (firstSections[0] ?? sections[0])?.from ?? [];
+  // The filing's districts, unless its scan lost them where the substitute's did not.
+  let fromDistricts = firstSections[0]?.from.length ? firstSections[0].from : (sections[0]?.from ?? []);
+  // An ordinance that names no from-district ("changing all the Community Shopping District symbols"): the application
+  // form bound into the record says "Present Zoning District: B3-3".
+  if (!fromDistricts.length && sections.length) {
+    const present = /Present\s+Zoning\s+District:?\s*([^\n]{2,80})/i.exec(stripOcrMarks(text));
+    const fromForm = present ? parseDistricts(present[1]) : [];
+    if (fromForm.length) {
+      fromDistricts = fromForm;
+      notes.push(`from-district read from the application form's "Present Zoning District" line: ${fromForm.map(displayDistrict).join(", ")}`);
+    }
+  }
+  // "changing all the Planned Development No. 1449 symbols": the record names its kind elsewhere ("Residential Business Planned Development No. 1449").
+  fromDistricts = fromDistricts.map((f) => (f.family === "PD" && f.pdNumber !== null && f.pdKind === null ? { ...f, pdKind: pdKindFromText(text, f.pdNumber) } : f));
   const to = sections.length ? sections[sections.length - 1].to : null;
   if (!sections.length) {
     needsReview = true;
@@ -635,8 +805,16 @@ export function readMatter(m: MatterInput, today: string, opts: ReadOptions = {}
       notes.push(`no district read in "to those of ${sections[sections.length - 1].toText.slice(0, 80)}"`);
     }
   }
-  const dir = direction(fromDistricts, to);
-  if (dir === "unknown" && sections.length && fromDistricts.length && to) notes.push("direction unknown: the districts' tables do not cover this change");
+  // "RM-5 to B3-5, then B3-5 to PD 1335, as amended": a planned development named in any section's from-chunk makes it an amendment.
+  const pdFrom = sections.flatMap((s) => s.from.filter((f) => f.family === "PD"));
+  const dir = direction(fromDistricts.some((f) => f.family === "PD") ? fromDistricts : [...fromDistricts, ...pdFrom], to);
+  if (dir === "unknown" && sections.length && fromDistricts.length && to) {
+    notes.push(
+      fromDistricts.every((f) => f.family === "PD")
+        ? "direction unknown: leaving a planned development whose homes the ordinance does not state"
+        : "direction unknown: the districts' tables do not cover this change",
+    );
+  }
   const fromFar = fromDistricts.length ? districtFar(fromDistricts[0]) : null;
   const toFar = to ? districtFar(to) : null;
 

@@ -14,6 +14,7 @@ import {
   parseLotSf,
   parsePermitAddress,
   parsePins,
+  pdKindFromText,
   parseSections,
   parseTitle,
   pdUnitCount,
@@ -283,4 +284,145 @@ test("readMatter: a plain map amendment, a Type 1 with a narrative, a substitute
   assert.equal(stalled.approved_units, 0);
   assert.equal(stalled.sponsored_by_alder, true);
   assert.equal(stalled.sponsor_ward, 44);
+});
+
+test("districts the scanner garbled: codes fixed, names with a dash number, planned developments in odd spellings", () => {
+  for (const [text, want] of [
+    ["83-1 Community Shopping District", "B3-1"],
+    ["332 Community Shopping District", "B3-2"],
+    ["Bl-lNeighborhood Shopping District", "B1-1"],
+    ["R'r-4 Residential Two-Flat, Townhouse and Multi-Unit District", "RT-4"],
+    ["RIv'f-6 Residential Multi-Unit District", "RM-6"],
+    ["C l - L Neighborhood Commercial District", "C1-1"],
+    ["lVll-2 Limited iVfanufacturing/Business Park District", "M1-2"],
+    ["aB2-3 Neighborhood Mixed-Use District", "B2-3"],
+    ["theRM-5 Residential Multi-Unit District", "RM-5"],
+    ["B3 — 2 Community Shopping District", "B3-2"],
+    ["M1--2 Limited Manufacturing/Business Park District", "M1-2"],
+    ["C2-]1 Motor Vehicle-Related Commercial District", "C2-1"],
+    ["RS-^2 Residential Single-Unit (Detached House) District", "RS-2"],
+    ["DX-.5 Downtown Mixed-Use District", "DX-5"],
+    ["B38-2 Community Shopping District", "B3-2"],
+    ["RS-8 Residential Single-Unit (Detached House) District", "RS-3"],
+    ["RM-S Residential Multi-Unit District", "RM-5"],
+    ["RM-S5 Residential Multi-Unit District", "RM-5"],
+    ["RSS Residential Single-Family (Detached House) District", "RS-3"],
+    ["B1-! Neighborhood Shopping District", "B1-1"],
+    ["Rt-4 Residential Two-Flat, Townhouse and Multi-Unit District", "RT-4"],
+    ["R32, Residential Single-Unit (Detached House) District", "RS-2"],
+    ["T-Transportation District", "T"],
+    ["T; Transportation District", "T"],
+    ["Planned Manufacturing District Number 11(A)", "PMD 11"],
+    ["Residential Business Plaimed Development", "PD (new)"],
+    ["Manufacturiiig Planned DevclopmentNumber 776, as amended", "PD 776 (amended)"],
+    ["Residential Business Institutional Planned #889", "PD 889"],
+    ["Commercial Planned Development1185 (B3-1 Community Shopping District underlying)", "PD 1185+B3-1"],
+    ["PD 1302, Planned Development District", "PD 1302"],
+  ] as const) {
+    assert.equal(parseDistricts(text).map(displayDistrict).join("+"), want, text);
+  }
+  // A name alone, or a code without its dash number, is no district: the parser never guesses.
+  assert.deepEqual(parseDistricts("RT, Residential Two-Flat, Townhouse and Multi-Unit District"), []);
+  assert.deepEqual(parseDistricts("B1, Neighborhood Shopping District"), []);
+  assert.deepEqual(parseDistricts("Community Shopping District"), []);
+  assert.equal(parseDistricts("Residential Planned Development No. 1140 and symbols")[0].pdKind, "Residential");
+  assert.equal(parseDistricts("Residential-\nBusiness Planned Development PD No. 1558")[0].pdKind, "Residential-Business");
+});
+
+test("the rezoning sentence as the scans spell it", () => {
+  for (const [text, from, to] of [
+    // "changmg", "those o f a", a lowercase code with spaces
+    ["is hereby amended by changmg all the RS3\nResidential Single-Unit (Detached House) District symbols and indications as shovvTi on\nMap No. 15-H in area bound by:\nNorth Hamilton Avenue\n\nTo those o f a\n\nc i - 1 Neighborhood Commercial District\n\nSECTION 2.", "RS-3", "C1-1"],
+    // "t o those", "To tho.se ofa", "tb those", "fo those", "lo lhat ofa"
+    ["amendedby changing all of the B2-3 neighborhood m i x - u s e . D i s t r i c t symbols arid\ni n d i c a t i o n s as shown on Map No. ( 9 - K ) i n the area bounded by\nWest Belmont Avenue.\nt o those o f a C l - 3 neighborhood Commercial D i s t r i c t .\n\nSECTION 2.", "B2-3", "C1-3"],
+    ["amended by changing all ofthe RT-4 Residential T'v\\'o-Flal, Townhouse and Multi-Unit\nDistrict symbols and indications as shown on Map No.4-G in the area bounded by:\nSouth May Street;\nTo tho.se ofa B2-3 Neighborhood Mixed-Use District.\nSECTION 2.", "RT-4", "B2-3"],
+    ["is amended by changing all of the RT-4,\nResidential Two-Flat, Townhouse and Multi-Unit District synribols and indications as\nshown on Map No. 1-J in the area bound by:\nNorth Lawndale Avenue,\ntb those of a RS-3, Residential Single-Unit (Detached House) District.\nSECTION 2.", "RT-4", "RS-3"],
+    ["amended by changing the current ResidentialBusine-ss Planned Development 186. a.s amended as shovvn on Map i-E in the area bounded by:\nNorth Michigan\nAvenue\nlo lhat ofa DX-16 Downtown Mi.\\ed-Use Dislrict.\nSECTION 2.", "PD 186 (amended)", "DX-16"],
+    // "tothose ofa", "to thoscof ... asamended", "symbolsand"
+    ["amended by changing all ofthe .Ml-L Limiied Manufacturmg/Business Park District symbols and\nindications as shown on Map No. 14-H in the area bounded by\nsouth Winchester Avenue.\n\ntothose ofa Cl-1 Neidiborhood Commercial District.\n\nSECTION 2.", "M1-1", "C1-1"],
+    ["amended by changingall the RM5\nResidential Multi-Unit District and Institutional Planned Development Number43. as amended.symbolsand\nindications as shown on Map Numbers 12-D and 14-D in the area bounded by:\nSouth University Avenue,\n\nto thoscof Institutional Planned Development Number 43, asamended, which is hereby established", "RM-5+PD 43 (amended)", "PD 43 (amended)"],
+    // "to that of an", "those of" with the "to" lost, the district alone after a blank line, "within the area herein above as"
+    ["is hereby amended by changing the RS-3, Residential Single Unit District,\nas shown on Map 1-H in the area bounded:\nWest Huron Street,\n\nto that of an RT-4 Residential Two-Flat, Townhouse and Multi-Unit Districts.\n\nSECTION 2.", "RS-3", "RT-4"],
+    ["hereby amended by changing all of the B1-2 Neighborhood Shopping District symbols and\nindications as shown on Map No. 7-F in the area bounded by\n\nNorth Halsted Street\n\nthose of a B3-3 Community Shopping District.\n\nSECTION 2.", "B1-2", "B3-3"],
+    ["hereby amended by changing all of the RS-3, Residential Single-Unit (Detached House) District\nsymbols and indications as shown on Map No. 5-L in the area bounded by\n\nNorth Linder Avenue\n\nRT-4, Residential Two-Flat, Townhouse and Multi-Unit District.\n\nSECTION 2.", "RS-3", "RT-4"],
+    ["amended by changing all the RS3\nResidential Single-Unit (Detached House) District symbols cind indications within the area\nherein above as Institutional Planned Development Number\n, which is hereby\nestablished", "RS-3", "PD (new)"],
+    // the district typed without a dash number is not guessed; the "to" clause in its own section; "to Residential Planned Development"
+    ["amended by changing all of the Business Planned Development 1025 symbols and indications and Ml-3\nLimited Manufacturing/Business Park District symbols and indications as shown on Map No. 7-H in the area bounded by:\nNorth Holly Avenue\n\nSECTION 2: To those of a Business Planned Development 1025, as Amended;\nSECTION 3: This ordinance", "PD 1025+M1-3", "PD 1025 (amended)"],
+    ["amended by changing all of the Residential Planned Development Number 1135 symbols and\nindications as shown on Map Number 10-F in the area bounded by:\nSouth Federal Street,\nto Residential Planned Development Number 1135, as amended, which is hereby established", "PD 1135", "PD 1135 (amended)"],
+  ] as const) {
+    const sec = parseSections(text);
+    assert.equal(sec.length >= 1, true, text.slice(0, 50));
+    assert.equal(sec[0].from.map(displayDistrict).join("+"), from, text.slice(0, 50));
+    assert.equal(displayDistrict(sec[sec.length - 1].to!), to, text.slice(0, 50));
+  }
+  // "to those of a B3-2 then to Institutional Planned Development #1150, as amended": the last district named.
+  const then = parseSections("amended by changing all of the Residential Planned Development #1149\nsymbols and indications as shown on Map No. 5-L in the area bounded by:\nNorth Laramie Avenue;\nto those of a B3-2 Community Shopping District then to Institutional Planned\nDevelopment #1150, as amended which is hereby established in the area described.");
+  assert.equal(displayDistrict(then[0].to!), "PD 1150 (amended)");
+  // Several districts each with their own "symbols and indications".
+  const several = parseSections("amended by changing all ofthe Institutional Planned\nDevelopment No. 17 symbols and indications and all the RS-3 Residential\nSingle-Unit (Detached House) District symbols and indications, as shown on Map\nNumber 13-H in the area bounded by:\nNorth Paulina Street\nto those of a RM4.5 Residential Multi-Unit District and a corresponding use\ndistrict is hereby established in the area above described.");
+  assert.deepEqual(several[0].from.map(displayDistrict), ["PD 17", "RS-3"]);
+  // A boundary description that says "Section 28, Township 40" is not a new section; the disclosure forms' "changing the zoning designation" is no rezoning.
+  const legal = parseSections("amended by changing all the RS-3 Residential Single-Unit (Detached House) District symbols and indications as shown on Map No. 6-H in the area bounded by\nLots 24 and 25 in the Southwest Quarter of Section 30, Township 38 North; West 25th Street\nto those of a C1-1 Neighborhood Commercial District.\nSECTION 2. This ordinance shall be in force.\n\nDoes the Matter involve changing the zoning designation of a property? If so, does any official or employee of the City have an interest other than in an officer's or employee's official capacity?");
+  assert.equal(legal.length, 1);
+  assert.equal(displayDistrict(legal[0].to!), "C1-1");
+});
+
+test("direction when a site leaves a planned development", () => {
+  const pd = (s: string) => parseDistricts(s);
+  assert.equal(direction(pd("Business Planned Development Number 29"), d("B3-5 Community Shopping District")), "up", "a business PD allowed no homes");
+  assert.equal(direction(pd("Institutional Planned Development No. 462"), d("RM-4.5")), "up");
+  assert.equal(direction(pd("Commercial Manufacturing Planned Development No. 1301"), d("Planned Manufacturing District 11")), "lateral", "no homes either side");
+  assert.equal(direction(pd("Residential Planned Development No. 1140"), d("M2-1 Light Industry District")), "down", "homes to none");
+  assert.equal(direction(pd("Residential Planned Development Number 1463"), d("RT-4")), "unknown", "how many homes the PD allowed is not in the ordinance");
+  assert.equal(direction(pd("Residential-Business Planned Development Number 1338"), d("DX-5")), "unknown");
+  assert.equal(direction(pd("Planned Development No. 1356"), d("DX-5")), "unknown", "kind not named");
+  assert.equal(pdKindFromText("...changing all PD No. 1449 symbols ... The purpose of the rezoning is to eliminate Residential Business Planned Development\nNo. 1449 and rezone the property to a B3-2 Community Shopping District.", 1449), "Residential-Business");
+  assert.equal(pdKindFromText("nothing here about 1449", 1449), null);
+});
+
+test("readMatter: a missing from-district comes from the application form; a bare planned development's kind from the record", () => {
+  const form = readMatter(
+    { record_number: "O2019-5540", title: "Zoning Reclassification Map No. 13-G at 5536 N Sheridan Rd - App No. 20096T1", full_text: "is hereby amended by changing all the Community Shopping District symbols\nand indications as shown on Map No. 13-G in the area bounded by\nNorth Sheridan Road,\nto those of a B2-3 Neighborhood Mixed-Use District and a corresponding uses district is\nhereby established in the area above described.\nSECTION 2.\n\n9. Present Zoning District: B3-3 Community Shopping District\nProposed Zoning District: B2-3\nLot size in square feet: 15,000\nThe proposed building will contain 8 dwelling units.\n", attachments: [], exhibit_texts: {}, outcome: "passed", sub_status: "Passed", introduction_date: "2019-07-24", final_action_date: "2019-09-18", filing_office: "Misc.", filing_sponsor: "Misc. Transmittal" },
+    "2026-10-17",
+  );
+  assert.equal(form.from_district, "B3-3");
+  assert.equal(form.to_district, "B2-3");
+  assert.equal(form.direction, "lateral");
+  assert.equal(form.needs_review, false);
+  const kind = readMatter(
+    { record_number: "O2023-1283", title: "Zoning Reclassification Map No. 5-N at 7152-7190 W North Ave - App No. 22126", full_text: "amended by changing all PD No. 1449 District symbols and indications as shown on Map No.5-N in the\narea bounded by\nNorth Neva Avenue\n\nto those of a B3-2 Community Shopping District\nSECTION 2.\n\nThe purpose of the rezoning is to eliminate Residential Business Planned Development\nNo. 1449 and rezone the property to a B3-2 Community Shopping District.", attachments: [], exhibit_texts: {}, outcome: "passed", sub_status: "Passed", introduction_date: "2023-03-15", final_action_date: "2023-04-19", filing_office: "Misc.", filing_sponsor: "Misc. Transmittal" },
+    "2026-10-17",
+  );
+  assert.equal(kind.from_district, "PD 1449");
+  assert.equal(kind.direction, "unknown", "a residential PD: what it allowed is not stated");
+  assert.equal(kind.notes.some((n) => /leaving a planned development/.test(n)), true);
+});
+
+test("planned development counts in the spellings the scans give the bulk table, and from the statements' own words", () => {
+  for (const [text, want] of [
+    ["MAXIMUM NUMBER OF DWELLING 120\nUNITS:\nMINIMUM NUMBER OF OFF STREET 14\nPARKING SPACES:", 120],
+    ["Maximum Permitted Dwelling Units: 113\nMaximum Permitted Dwelling Units and\nHotel Keys: 113*", 113],
+    ["Maximum Number of Dwelling Units: N/A\nMinimum Number of Required", 0],
+    ["Maximum Number of Dwelling\nUnits:\n\nNone Permitted\n\nMinimum Number of Off-Street", 0],
+    ["Max Number of Dwelling Units (§17-30402-B) 114 DU (100% on-site ARO units; ii. 105 DU", 114],
+    ["Maximum Number of Dwelling Unils:\n\n358\n\nMinimum Off-Slreel Parking Spaces:\n\n186", 358],
+    ["Maximum Number of\nDwelling Units:\n\nSub Area A = 374 units\nSub Area B = 320 units\nSub Area C = 6 units\nSub Area D = 82 units\nTotal =\n782 units\n\nMaximum Site Coverage", 782],
+    ["MAX. RESIDENTIAL DWELLING UNITS\nSUB-AREA A\n\n327\n\nSUB-AREA B\n\n34\n\nSUB-AREA C\n\n126\n\nSUB-AREA D\n\nN/A\n\nTOTAL\n\n487\n\nMAX. NUMBER OF OFF-STREET LOADING SPACES\nSUB-AREA A\n\n2 (10' X 25')", 487],
+    ["Maximum Permitted Dwelling Units:\nSubarea A:\n\n0\n\nSubarea B:\n\n320\n\nMinimum Off-Street Parking Spaces:\nSubarea A:\n\n0\n\nSubarea B:\n\n90", 320],
+    ["Maximum\nDwelling\nUnits\n\nMaximum\nFloor Area\nRatio\n\nMinimum\nNumber Of\nParking Spaces\n\n2,400\n\n7.9\n\n930", 2400],
+    ["Maximum Permitted Dwelling Units:\nMinimum Off-Street Parking:\nMaximum Building Height:\n\n24.554 sq. ft.\n105.746 sq. ft.", null],
+    ["construction of a 25-story, 300 foot tall building with 350 residential units, 50 bicycle parking spaces", 350],
+    ["of two towers (47 and 40 stories) containing 1,053 overall residential units, 430 parking spaces", 1053],
+    ["allow construction of a proposed new 5-story, 68 dwelling unit building with 27 interior parking stalls", 68],
+    ["retail, two (2) live-work units and fifty-six (56) dwelling units.", 56],
+    ["Sub-Area A: residential uses, including up to 738 dwelling units. The applicant is amending Sub-Area A to add 232 dwelling units", 738],
+    ["The development will contain 0 dwelling units, an existing building containing approximately 275,000 square feet", 0],
+    ["residential housing projects with ten or more units that receive a zoning change; include 60 dwelling units or more; (6) number of dwelling units (if applicable); Two (2) Hotel rooms/keys shall be equal to one (1) dwelling unit.", null],
+  ] as const) {
+    assert.equal(pdUnitCount(text).units, want, text.slice(0, 50));
+  }
+  const misread = pdUnitCount("Maximum Permitted Dwelling Units 141\n\nSubarea A: 361\n\nSubarea B: 380\n\nMinimum Off-Street Parking Spaces 40");
+  assert.equal(misread.units, 741, "a total below its own subareas is misread; the subareas are summed");
+  assert.equal(pdUnitCount("Maximum Number of Dwelling Units: 1,844\nSubarea A (Total): 1,500\nSubarea A1: 405\nSubarea B: 344\nMaximum Number").units, 1844, "a total at or above its subareas stands");
+  assert.equal(narrativeUnitCount("allow the construction of a three-story 9-dwelling-unit building with a basement.\nUse: 9-Residential dwelling units.\nMIN. LOT AREA/DWELLING UNIT: 688 sq. ft.").units, 9, "a density standard is not a count");
 });

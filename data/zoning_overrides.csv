@@ -1,1 +1,53 @@
 record_number,ward,direction,requested_units,approved_units,note
+O2022-1945,,up,,,C1-2 to B2-3 at 1013 W 18th St; the scan reads the new district as ti'2-i
+O2023-0004772,,up,,,re-introduction of O2022-1945: C1-2 to B2-3 at 1013 W 18th St; the scan reads the new district as ti'2-i
+O2021-622,,down,0,0,"B2-5 to B1-2 at 2509-2527 W Devon Ave, filed by the alder; the scan reads Q1 -2"
+O2021-1212,,down,0,0,"C1-2 to RT-4 at 2136-2146 E 75th St, filed by the alder; the scan drops the RT-4 code"
+O2023-0002571,,down,0,0,re-introduction of O2021-1212: C1-2 to RT-4 at 2136-2146 E 75th St; the scan drops the RT-4 code
+O2023-260,,up,,,"RS3 to B2-1.5 at 10358 S Ewing Ave, handwritten on the form"
+O2022-1558,,lateral,,,"B3-3, C1-2 and M1-2 to B3-2 at 2108-2148 S Halsted St, filed by the alder; the scan is unreadable"
+O2023-0002816,,up,,,RS-3 to RT-4 at 2739 S Shields Ave; the scan is unreadable
+O2023-0006173,,lateral,,,B3-2 to B2-2 at 4161-4193 S Halsted St; the scan is unreadable
+O2020-1912,,up,,,RS3 to RT3.5 at 5636 N Karlov Ave; the scan runs 'to those of' into one word
+O2021-1329,,pd,0,0,repeals and replaces SO2020-4556 (PMD 2 to a Business Planned Development at 1020 N Elston Ave) after a clerical error; the development is counted on SO2020-4556
+SO2019-1385,,pd_amend,,,"Business PD 29 at 5033 N Elston Ave, amended; the Clerk's substitute PDF on this record is a different ordinance (B3-2 to B3-5 at 2618 N Milwaukee Ave)"
+O2022-3941,,pd_amend,0,0,corrects the boundary description in SO2022-1111 (Residential-Business PD 1518 at 835-861 E 63rd St); adds no homes
+O2023-1334,,pd_amend,0,0,amends statements 5 and 12 of Residential Business PD 1092 (a restaurant patio on the urban garden at Franklin and Illinois); adds no homes
+SO2019-5544,,up,0,0,Central Area Parking PD 997 to DC-16 at 180 W Randolph St for a 13-story hotel: a parking garage allowed no homes and the Type 1 narrative proposes none
+O2020-6208,,up,,,RS-3 to RM-6 at 3300 W Pershing Rd; the scan writes dots and dashes for spaces
+O2022-821,,up,,,"RS-3 to RT-4 at 3155 S Union Ave; the ordinance gives RT-4 the name of an RM district, so the parser reads RM-4.5"
+SO2020-3724,,lateral,0,0,Waterway-Heliport PD 1236 to Planned Manufacturing District 11 at 2424 S Halsted St: no homes either side; later repealed
+O2021-799,,lateral,0,0,Waterway-Heliport PD 1236 to Planned Manufacturing District 11 at 2424 S Halsted St: no homes either side
+O2023-0002573,,up,9,,"re-introduction of O2021-1895 (M1-2 to C1-2, Type 1, 9 dwelling units at 2142-2156 N Clybourn Ave); this record carries no ordinance text"
+O2023-0002164,37,up,3,3,RS3 to RT4 at 952 N Springfield Ave for a third dwelling unit in the existing two-flat (the application form; the record carries no ordinance text)
+SO2023-0001865,27,,971,741,"1300 W Carroll Ave: filed for 971 homes; the final table's total reads 141 in the scan but its subareas are 361 and 380, so 741; ward from the building permits on the same block (2 permits, both ward 27)"
+SO2020-6237,4,,,,"50-66 E Harrison St: no assessor row for the site; ward from the building permits on the same block (1 permit, ward 4)"
+SO2023-0006496,27,,,,"400 N Elizabeth Ave (the assessor spells it St): ward from the building permits on the same block (5 permits, all ward 27)"
+SO2026-0024034,39,,,,"6342-6344 N Pulaski Rd: no assessor row for the site; ward from the building permits on the same block (3 permits, all ward 39)"
+SO2024-0014012,27,,,,"350 N Morgan St: no assessor row for the site; ward from the building permits on the same block (17 permits, all ward 27)"
+SO2025-0017435,27,,,,"1200 W Carroll Ave: no assessor row for the site; ward from the building permits on the same block (22 permits, all ward 27)"
+SO2023-0004084,34,,,,354 N Union Ave: no assessor row for the site; the building permit at 354 N Union is in ward 34
+SO2023-0006454,34,,,,"30 N LaSalle St: no assessor row for the site; ward from the building permits on the same block (93 permits, 96% ward 34)"
+SO2023-0002142,27,,,,"301 S Damen Ave and 1801-1853 W Jackson Blvd: ward from the building permits on the same blocks (26 permits, all ward 27)"
+SO2021-3927,44,,,,"524-628 W Diversey Pkwy: ward from the building permits on the same block (59 permits, all ward 44)"
+O2022-1160,3,,0,0,"4648 S Michigan Ave: a brew pub added to a cafe on the ground floor of the 239-unit Rosenwald Court (the application form); no homes; ward from the building permits on the same block (11 permits, all ward 3)"
+O2019-6829,46,,80,80,"1039-1045 W Lawrence Ave: a 161-unit SRO building converted to 72 efficiency units and 8 dwelling units (the narrative), 80 homes in all; ward from the building permits on the same block (13 permits, all ward 46)"
+SO2022-3835,2,,,,"1523-1547 N Fremont St (the title spells it Freemont): ward from the building permits on the same block (11 permits, all ward 2)"
+O2021-5073,21,,0,0,"1223 W 87th St: a community and youth center (the application form), no homes; ward from the building permits on the same block (7 permits, all ward 21)"
+SO2020-1906,32,,,,"1842-1858 W Webster Ave and 2200-2242 N Lister Ave: ward from the building permits on the same blocks (8 permits, all ward 32)"
+SO2021-4546,50,,,,"6111-6199 N Lincoln Ave: ward from the building permits on the same block (36 permits, all ward 50)"
+SO2019-2659,35,,,,"2602-2638 N Emmett St: ward from the building permits on the same block (4 permits, all ward 35)"
+SO2024-0008350,48,,,,"5853 N Broadway: no assessor row for the site; ward from the building permits on the same block (21 permits, all ward 48)"
+SO2022-2755,25,,,,"1600 S Laflin St: ward from the building permits on the same block (4 permits, all ward 25)"
+O2020-784,48,,,,"5440 N Sheridan Rd: ward from the building permits on the same block (15 permits, all ward 48)"
+SO2023-0002192,27,,,,"116-138 S Paulina St (the title carries a stray tracking number): ward from the building permit on the same block (1 permit, ward 27)"
+O2024-0010020,48,,,,"5305-5309 N Winthrop Ave: ward from the building permits on the same block (8 permits, all ward 48)"
+SO2020-3719,41,,,,"5656 N Newcastle Ave: ward from the building permits on the same block (4 permits, all ward 41)"
+O2026-0025342,27,,,,"2323 W Grand Ave: ward from the building permits on the same block (12 permits, all ward 27)"
+SO2021-3930,47,,,,"3613 N Ravenswood Ave: ward from the building permits on the same block (9 permits, all ward 47)"
+SO2025-0015997,28,,,,"3415-3449 W Jackson Blvd: ward from the building permits on the same block (5 permits, all ward 28)"
+SO2023-0002183,28,,,,"1434-1446 W Fillmore St: ward from the building permits on the same block (5 permits, all ward 28)"
+SO2019-4344,27,,,,"1234-1248 W Fulton Market and 301-315 N Elizabeth St: ward from the building permits on the same blocks (35 permits, all ward 27)"
+SO2025-0016647,50,,,,"6659 N Kedzie Ave: ward from the building permits within three blocks (9 permits, all ward 50)"
+SO2026-0024781,43,,0,0,1901-1925 N Clybourn Ave: the Type 1 narrative rezones two existing commercial buildings with no changes proposed; no homes
+SO2021-1024,,,4028,4028,"Moody/North Union PD at 142-172 W Chicago Ave: the bulk table's total is 4,028 (Moody 1,372 and North Union 2,656) in both the filing and the substitute; the filing's table scanned with Subarea A's figure displaced, so the parser summed the other subareas"

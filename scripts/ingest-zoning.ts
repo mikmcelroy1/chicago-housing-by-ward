@@ -4,7 +4,8 @@
  * each alder's part in the curated citywide housing ordinances, and write the tables the Alder actions tab reads.
  * Runs after scripts/ingest-permits.ts, which builds the projects it links to.
  *
- *   npm run etl-zoning                        full run: copy over ZONING_DATABASE_URL, load DATABASE_URL
+ *   npm run etl-zoning                        full run: copy over ZONING_DATABASE_URL, load DATABASE_URL; exhibit texts in
+ *                                             data/cache/exhibit-texts.json (a local backfill) are written to the live table too
  *   npm run etl-zoning -- --dry-run           no database: reads and writes data/fixtures/snapshot.json
  *   npm run etl-zoning -- --cache             reuse data/cache/zoning-matters.json instead of copying
  *   npm run etl-zoning -- --full              copy the whole corpus again, not only what was published since the last copy
@@ -611,6 +612,17 @@ async function main() {
   const store = DRY
     ? loadExhibitFile(EXHIBIT_CACHE)
     : await withDb(process.env.DATABASE_URL, "DATABASE_URL", async (db) => new ExhibitStore((await db.query("select source_url, record_number, file_name, text, pages_read, pages_total, method, engine, extracted_at::text from zoning_attachment_texts")).rows as ExhibitText[]));
+  // A live run on a machine that holds the dry-run cache (a local backfill) writes its texts to the table too, so
+  // the nightly job does not re-read them 25 a night. Texts the table already has are left as they are.
+  if (!DRY && existsSync(EXHIBIT_CACHE)) {
+    let seeded = 0;
+    for (const t of loadExhibitFile(EXHIBIT_CACHE).all()) {
+      if (store.has(t.source_url)) continue;
+      store.add(t);
+      seeded += 1;
+    }
+    if (seeded) console.log(`exhibits: ${seeded} texts from the dry-run cache will be written to zoning_attachment_texts`);
+  }
 
   // Read, OCR what is still wanted, read again.
   const readAll = (lots: Map<string, number | null>) => new Map(corpus.map((r) => [r.matter_id, read(r, store.byUrl(), lots.get(r.matter_id) ?? null)]));
